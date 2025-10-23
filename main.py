@@ -1,8 +1,8 @@
 import re
+import sys
 from datetime import datetime
 from typing import List, Optional, Tuple, Dict
 from collections import defaultdict
-import sys
 
 
 class LogFilter:
@@ -14,6 +14,11 @@ class LogFilter:
             log_file_path: Path to the log file
             max_tokens: Maximum tokens for LLM (leaving buffer from 4000)
         """
+        if not log_file_path:
+            raise ValueError("log_file_path cannot be empty")
+        if max_tokens <= 0:
+            raise ValueError("max_tokens must be positive")
+        
         self.log_file_path = log_file_path
         self.max_tokens = max_tokens
         # Rough estimation: 1 token ≈ 4 characters
@@ -57,8 +62,12 @@ class LogFilter:
         if not start_date and not end_date:
             return lines
         
-        start_dt = datetime.strptime(start_date, '%Y-%m-%d') if start_date else None
-        end_dt = datetime.strptime(end_date, '%Y-%m-%d').replace(hour=23, minute=59, second=59) if end_date else None
+        try:
+            start_dt = datetime.strptime(start_date, '%Y-%m-%d') if start_date else None
+            end_dt = datetime.strptime(end_date, '%Y-%m-%d').replace(hour=23, minute=59, second=59) if end_date else None
+        except ValueError as e:
+            print(f"Error parsing date: {e}")
+            return lines
         
         filtered = []
         last_valid_timestamp = None
@@ -369,9 +378,25 @@ Legend: >>> = direct match, (indented) = context line
         Returns:
             Filtered and formatted log content ready for LLM
         """
+        if not keywords:
+            return "Error: No keywords provided for filtering."
+        
+        if context_lines < 0:
+            return "Error: context_lines must be non-negative."
+        
+        if max_results is not None and max_results <= 0:
+            return "Error: max_results must be positive if specified."
+        
         print("Reading log file...")
-        with open(self.log_file_path, 'r', encoding='utf-8', errors='ignore') as f:
-            lines = f.readlines()
+        try:
+            with open(self.log_file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                lines = f.readlines()
+        except FileNotFoundError:
+            return f"Error: Log file '{self.log_file_path}' not found."
+        except PermissionError:
+            return f"Error: Permission denied accessing '{self.log_file_path}'."
+        except Exception as e:
+            return f"Error reading log file: {e}"
         
         print(f"Total lines: {len(lines)}")
         
@@ -438,8 +463,12 @@ def main():
     
     # Save output
     output_file = "filtered_logs.txt"
-    with open(output_file, 'w', encoding='utf-8') as f:
-        f.write(result)
+    try:
+        with open(output_file, 'w', encoding='utf-8') as f:
+            f.write(result)
+    except Exception as e:
+        print(f"Error saving output file: {e}")
+        return
     
     print(f"\nFiltered logs saved to: {output_file}")
     print("\nPreview:")
