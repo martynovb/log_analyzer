@@ -1,2 +1,3 @@
 filtered_logs.txt
 app.log
+**.pyc
