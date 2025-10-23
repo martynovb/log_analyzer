@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log Analyzer - Issue Analysis Tool</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .form-section {
+            margin-bottom: 40px;
+        }
+        
+        .form-section h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #34495e;
+        }
+        
+        input[type="file"], 
+        input[type="text"], 
+        input[type="date"], 
+        input[type="number"],
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+        
+        input[type="file"]:focus, 
+        input[type="text"]:focus, 
+        input[type="date"]:focus, 
+        input[type="number"]:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .checkbox-item input[type="checkbox"] {
+            width: auto;
+            margin: 0;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            margin-right: 10px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4);
+        }
+        
+        .btn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
+        }
+        
+        .btn-secondary:hover {
+            box-shadow: 0 5px 15px rgba(149, 165, 166, 0.4);
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .result {
+            display: none;
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 25px;
+            margin-top: 30px;
+        }
+        
+        .result h3 {
+            color: #27ae60;
+            margin-bottom: 15px;
+        }
+        
+        .result-item {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+            border-left: 4px solid #3498db;
+        }
+        
+        .result-item strong {
+            color: #2c3e50;
+        }
+        
+        .error {
+            background: #e74c3c;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .success {
+            background: #27ae60;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .keywords-preview {
+            background: #ecf0f1;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+        
+        .keyword-tag {
+            display: inline-block;
+            background: #3498db;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            margin: 2px;
+            font-size: 12px;
+        }
+        
+        .technical-keyword {
+            background: #e74c3c;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .checkbox-group {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Log Analyzer</h1>
+            <p>Upload your log files and describe the issue for intelligent analysis</p>
+        </div>
+        
+        <div class="content">
+            <form id="analysisForm" enctype="multipart/form-data">
+                <div class="form-section">
+                    <h2>📁 Log File Upload</h2>
+                    <div class="form-group">
+                        <label for="log_file">Select Log File:</label>
+                        <input type="file" id="log_file" name="log_file" accept=".log,.txt" required>
+                    </div>
+                </div>
+                
+                <div class="form-section">
+                    <h2>📝 Issue Description</h2>
+                    <div class="form-group">
+                        <label for="issue_description">Describe the issue you're experiencing:</label>
+                        <textarea id="issue_description" name="issue_description" 
+                                  placeholder="Example: The application crashes periodically with memory errors. Users report freezing and segmentation faults during high load periods..." 
+                                  required></textarea>
+                    </div>
+                    
+                    <div class="keywords-preview" id="keywordsPreview" style="display: none;">
+                        <h4>Extracted Keywords:</h4>
+                        <div id="keywordsList"></div>
+                    </div>
+                </div>
+                
+                <div class="form-section">
+                    <h2>⚙️ Analysis Configuration</h2>
+                    <div class="grid">
+                        <div class="form-group">
+                            <label for="start_date">Start Date (optional):</label>
+                            <input type="date" id="start_date" name="start_date">
+                        </div>
+                        <div class="form-group">
+                            <label for="end_date">End Date (optional):</label>
+                            <input type="date" id="end_date" name="end_date">
+                        </div>
+                    </div>
+                    
+                    <div class="grid">
+                        <div class="form-group">
+                            <label for="max_tokens">Max Tokens:</label>
+                            <input type="number" id="max_tokens" name="max_tokens" value="3500" min="1000" max="10000">
+                        </div>
+                        <div class="form-group">
+                            <label for="context_lines">Context Lines:</label>
+                            <input type="number" id="context_lines" name="context_lines" value="2" min="0" max="10">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <div class="checkbox-group">
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="deduplicate" name="deduplicate" checked>
+                                <label for="deduplicate">Remove Duplicates</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="prioritize_severity" name="prioritize_severity">
+                                <label for="prioritize_severity">Prioritize by Severity</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+        <div class="form-section">
+            <h2>🤖 LLM Configuration (Required)</h2>
+            <p style="margin-bottom: 20px; color: #7f8c8d;">Configure your local LLM for keyword extraction. Both URL and Model name are required.</p>
+
+            <div class="grid">
+                <div class="form-group">
+                    <label for="llm_url">LLM Server URL: <span style="color: red;">*</span></label>
+                    <input type="text" id="llm_url" name="llm_url" placeholder="http://127.0.0.1:1234" required>
+                </div>
+                <div class="form-group">
+                    <label for="llm_model">Model Name: <span style="color: red;">*</span></label>
+                    <input type="text" id="llm_model" name="llm_model" placeholder="qwen2.5-coder-32b-instruct" required>
+                </div>
+            </div>
+
+            <div class="grid">
+                <div class="form-group">
+                    <label for="llm_timeout">Timeout (seconds):</label>
+                    <input type="number" id="llm_timeout" name="llm_timeout" placeholder="120" value="120" min="5" max="300">
+                </div>
+                <div class="form-group">
+                    <label for="llm_max_tokens">Max Tokens:</label>
+                    <input type="number" id="llm_max_tokens" name="llm_max_tokens" placeholder="1000" value="1000" min="100" max="4000">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <button type="button" class="btn btn-secondary" id="testLLMBtn">🧪 Test LLM Connection</button>
+                <span id="llm_status" style="margin-left: 15px; padding: 8px 12px; border-radius: 4px; font-size: 14px; font-weight: bold; background: #e74c3c; color: white;">Not Connected</span>
+            </div>
+        </div>
+                
+                <div class="form-group">
+                    <button type="submit" class="btn" id="analyzeBtn">🚀 Analyze Logs</button>
+                    <button type="button" class="btn btn-secondary" id="previewKeywordsBtn">🔍 Preview Keywords</button>
+                </div>
+            </form>
+            
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Analyzing logs and extracting context... This may take a few moments.</p>
+            </div>
+            
+            <div class="error" id="errorMessage"></div>
+            <div class="success" id="successMessage"></div>
+            
+            <div class="result" id="result">
+                <h3>📊 Analysis Results</h3>
+                <div id="resultContent"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        document.getElementById('analysisForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const analyzeBtn = document.getElementById('analyzeBtn');
+            const loading = document.getElementById('loading');
+            const errorMessage = document.getElementById('errorMessage');
+            const successMessage = document.getElementById('successMessage');
+            const result = document.getElementById('result');
+            
+            // Show loading state
+            analyzeBtn.disabled = true;
+            loading.style.display = 'block';
+            errorMessage.style.display = 'none';
+            successMessage.style.display = 'none';
+            result.style.display = 'none';
+            
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Show success message
+                    successMessage.textContent = 'Analysis completed successfully!';
+                    successMessage.style.display = 'block';
+                    
+                    // Display results
+                    const resultContent = document.getElementById('resultContent');
+                    resultContent.innerHTML = `
+                        <div class="result-item">
+                            <strong>Processing Time:</strong> ${data.processing_time_ms}ms
+                        </div>
+                        <div class="result-item">
+                            <strong>Extracted Keywords:</strong> ${data.extracted_keywords.join(', ')}
+                        </div>
+                        <div class="result-item">
+                            <strong>Codebase Files Found:</strong> ${data.codebase_files}
+                        </div>
+                        <div class="result-item">
+                            <strong>Documentation Items:</strong> ${data.documentation_items}
+                        </div>
+                        <div class="result-item">
+                            <strong>🤖 LLM Analysis:</strong><br>
+                            <pre style="background: #e8f5e8; padding: 10px; border-radius: 5px; margin-top: 10px; white-space: pre-wrap;">${data.llm_analysis || 'LLM analysis not available'}</pre>
+                        </div>
+                        <div class="result-item">
+                            <a href="/download/${data.analysis_id}" class="btn">📥 Download Full Results</a>
+                        </div>
+                    `;
+                    result.style.display = 'block';
+                } else {
+                    throw new Error(data.error || 'Analysis failed');
+                }
+            } catch (error) {
+                errorMessage.textContent = `Error: ${error.message}`;
+                errorMessage.style.display = 'block';
+            } finally {
+                analyzeBtn.disabled = false;
+                loading.style.display = 'none';
+            }
+        });
+        
+        document.getElementById('previewKeywordsBtn').addEventListener('click', async function() {
+            const issueDescription = document.getElementById('issue_description').value;
+            const keywordsPreview = document.getElementById('keywordsPreview');
+            const keywordsList = document.getElementById('keywordsList');
+            
+            if (!issueDescription.trim()) {
+                alert('Please enter an issue description first');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/keywords', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        issue_description: issueDescription,
+                        llm_config: getLLMConfig()
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                // Display keywords with enhanced format
+                let html = '';
+                if (data.keywords && data.keywords.length > 0) {
+                    html += '<div style="margin-bottom: 10px;"><strong>Extracted Keywords:</strong><br>';
+                    data.keywords.forEach(keyword => {
+                        const typeClass = keyword.type === 'technical' ? 'technical-keyword' : '';
+                        html += `<span class="keyword-tag ${typeClass}">${keyword.keyword} (${keyword.type}, ${keyword.confidence.toFixed(2)})</span>`;
+                    });
+                    html += '</div>';
+                } else if (data.general_keywords || data.technical_keywords) {
+                    // Fallback to old format
+                    html += '<div style="margin-bottom: 10px;"><strong>General Keywords:</strong><br>';
+                    (data.general_keywords || []).forEach(keyword => {
+                        html += `<span class="keyword-tag">${keyword}</span>`;
+                    });
+                    html += '</div>';
+                    
+                    html += '<div><strong>Technical Keywords:</strong><br>';
+                    (data.technical_keywords || []).forEach(keyword => {
+                        html += `<span class="keyword-tag technical-keyword">${keyword}</span>`;
+                    });
+                    html += '</div>';
+                }
+                
+                keywordsList.innerHTML = html;
+                keywordsPreview.style.display = 'block';
+                
+            } catch (error) {
+                alert(`Error extracting keywords: ${error.message}`);
+            }
+        });
+        
+        document.getElementById('testLLMBtn').addEventListener('click', async function() {
+            const testBtn = document.getElementById('testLLMBtn');
+            const statusElement = document.getElementById('llm_status');
+            
+            const url = document.getElementById('llm_url').value.trim();
+            const model = document.getElementById('llm_model').value.trim();
+            const timeout = parseInt(document.getElementById('llm_timeout').value);
+            const maxTokens = parseInt(document.getElementById('llm_max_tokens').value);
+
+            if (!url || !model) {
+                alert('Please provide both LLM URL and Model name');
+                return;
+            }
+
+            testBtn.disabled = true;
+            statusElement.textContent = 'Testing...';
+            statusElement.style.background = '#f39c12';
+
+            try {
+                const response = await fetch('/api/test-llm', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        url: url,
+                        model: model,
+                        timeout: timeout,
+                        max_tokens: maxTokens
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    statusElement.textContent = 'Connected';
+                    statusElement.style.background = '#27ae60';
+                    showSuccess(`LLM connection successful! Model: ${result.model}`);
+                } else {
+                    statusElement.textContent = 'Connection Failed';
+                    statusElement.style.background = '#e74c3c';
+                    showError(result.error || 'LLM connection failed');
+                }
+            } catch (error) {
+                statusElement.textContent = 'Connection Failed';
+                statusElement.style.background = '#e74c3c';
+                showError('Failed to test LLM connection: ' + error.message);
+            } finally {
+                testBtn.disabled = false;
+            }
+        });
+        
+        function getLLMConfig() {
+            return {
+                url: document.getElementById('llm_url').value.trim(),
+                model: document.getElementById('llm_model').value.trim(),
+                timeout: parseInt(document.getElementById('llm_timeout').value),
+                max_tokens: parseInt(document.getElementById('llm_max_tokens').value)
+            };
+        }
+        
+        function showSuccess(message) {
+            const successMessage = document.getElementById('successMessage');
+            successMessage.textContent = message;
+            successMessage.style.display = 'block';
+            setTimeout(() => {
+                successMessage.style.display = 'none';
+            }, 5000);
+        }
+        
+        function showError(message) {
+            const errorMessage = document.getElementById('errorMessage');
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            setTimeout(() => {
+                errorMessage.style.display = 'none';
+            }, 5000);
+        }
+        
+        // No auto-test since we need user configuration
+    </script>
+</body>
+</html>

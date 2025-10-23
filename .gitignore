@@ -1,3 +1,5 @@
 filtered_logs.txt
 app.log
 **.pyc
+analysis_results/**
+uploads/**
