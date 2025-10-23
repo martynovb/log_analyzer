@@ -3,51 +3,75 @@ import sys
 from datetime import datetime
 from typing import List, Optional, Tuple, Dict
 from collections import defaultdict
+from dataclasses import dataclass
+from abc import ABC, abstractmethod
 
 
-class LogFilter:
-    def __init__(self, log_file_path: str, max_tokens: int = 3500):
-        """
-        Initialize log filter.
-        
-        Args:
-            log_file_path: Path to the log file
-            max_tokens: Maximum tokens for LLM (leaving buffer from 4000)
-        """
-        if not log_file_path:
+@dataclass
+class LogFilterConfig:
+    """Configuration class for log filtering parameters."""
+    log_file_path: str
+    max_tokens: int = 3500
+    context_lines: int = 2
+    deduplicate: bool = True
+    prioritize_by_severity: bool = False
+    prioritize_matches: bool = True
+    max_results: Optional[int] = None
+    
+    def __post_init__(self):
+        """Validate configuration parameters."""
+        if not self.log_file_path:
             raise ValueError("log_file_path cannot be empty")
-        if max_tokens <= 0:
+        if self.max_tokens <= 0:
             raise ValueError("max_tokens must be positive")
-        
-        self.log_file_path = log_file_path
-        self.max_tokens = max_tokens
-        # Rough estimation: 1 token ≈ 4 characters
-        self.max_chars = max_tokens * 4
-        
-    def parse_log_timestamp(self, line: str) -> Optional[datetime]:
-        """
-        Parse timestamp from log line. Adjust patterns based on your log format.
-        Common formats:
-        - 2025-10-21 14:30:45.123
-        - 2025-10-21T14:30:45Z
-        - [2025-10-21 14:30:45]
-        """
-        # Timestamp patterns
-        patterns = [
+        if self.context_lines < 0:
+            raise ValueError("context_lines must be non-negative")
+        if self.max_results is not None and self.max_results <= 0:
+            raise ValueError("max_results must be positive if specified")
+    
+    @property
+    def max_chars(self) -> int:
+        """Calculate maximum characters based on token limit."""
+        return self.max_tokens * 4  # Rough estimation: 1 token ≈ 4 characters
+
+
+class LogTimestampParser:
+    """Handles parsing of timestamps from log lines."""
+    
+    def __init__(self):
+        self.patterns = [
             r'(\d{4}-\d{2}-\d{2}[\sT]\d{2}:\d{2}:\d{2})',  # ISO format
         ]
+        self.formats = ['%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S', '%d/%m/%Y %H:%M:%S']
+    
+    def parse_timestamp(self, line: str) -> Optional[datetime]:
+        """
+        Parse timestamp from log line.
         
-        for pattern in patterns:
+        Args:
+            line: Log line to parse
+            
+        Returns:
+            Parsed datetime object or None if no timestamp found
+        """
+        for pattern in self.patterns:
             match = re.search(pattern, line)
             if match:
                 timestamp_str = match.group(1)
                 # Try parsing with different formats
-                for fmt in ['%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S', '%d/%m/%Y %H:%M:%S']:
+                for fmt in self.formats:
                     try:
                         return datetime.strptime(timestamp_str.split('.')[0], fmt)
                     except ValueError:
                         continue
         return None
+
+
+class LogDateFilter:
+    """Handles filtering log lines by date range."""
+    
+    def __init__(self, parser: LogTimestampParser):
+        self.parser = parser
     
     def filter_by_date_range(self, lines: List[str], start_date: Optional[str], 
                             end_date: Optional[str]) -> List[str]:
@@ -58,6 +82,9 @@ class LogFilter:
             lines: List of log lines
             start_date: Start date in YYYY-MM-DD format (optional)
             end_date: End date in YYYY-MM-DD format (optional)
+            
+        Returns:
+            Filtered list of log lines
         """
         if not start_date and not end_date:
             return lines
@@ -73,7 +100,7 @@ class LogFilter:
         last_valid_timestamp = None
         
         for line in lines:
-            log_dt = self.parse_log_timestamp(line)
+            log_dt = self.parser.parse_timestamp(line)
             
             # If we found a timestamp, remember it and check if it's in range
             if log_dt:
@@ -93,6 +120,10 @@ class LogFilter:
                 filtered.append(line)
         
         return filtered
+
+
+class LogKeywordFilter:
+    """Handles filtering log lines by keywords with context."""
     
     def filter_by_keywords(self, lines: List[str], keywords: List[str],
                           context_lines: int = 2, word_boundary: bool = True,
@@ -177,6 +208,10 @@ class LogFilter:
             print(f"  Keyword breakdown: {dict(keyword_stats)}")
         
         return result, dict(keyword_stats)
+
+
+class LogDeduplicator:
+    """Handles deduplication of similar log entries."""
     
     def deduplicate_similar_lines(self, filtered_lines: List[Tuple[int, str, bool]], 
                                  max_duplicates: int = 3) -> List[Tuple[int, str, bool]]:
@@ -186,6 +221,9 @@ class LogFilter:
         Args:
             filtered_lines: Lines to deduplicate (line_num, line, is_match)
             max_duplicates: Keep only this many copies of similar messages
+            
+        Returns:
+            Deduplicated list of log lines
         """
         if not filtered_lines:
             return filtered_lines
@@ -216,6 +254,10 @@ class LogFilter:
         
         print(f"  Kept {len(unique_lines)} unique entries")
         return unique_lines
+
+
+class LogPrioritizer:
+    """Handles prioritization of log lines by severity/importance."""
     
     def prioritize_lines(self, filtered_lines: List[Tuple[int, str, bool]]) -> List[Tuple[int, str, bool]]:
         """
@@ -250,24 +292,39 @@ class LogFilter:
         sorted_lines = sorted(filtered_lines, key=get_priority)
         
         return sorted_lines
+
+
+class LogFormatter(ABC):
+    """Abstract base class for log formatters."""
     
-    def truncate_to_token_limit(self, filtered_lines: List[Tuple[int, str, bool]], 
-                               add_summary: bool = True,
-                               prioritize_matches: bool = True) -> str:
+    @abstractmethod
+    def format(self, filtered_lines: List[Tuple[int, str, bool]], 
+               config: LogFilterConfig) -> str:
+        """Format filtered log lines."""
+        pass
+
+
+class TokenLimitedFormatter(LogFormatter):
+    """Formats log lines with token limit constraints."""
+    
+    def format(self, filtered_lines: List[Tuple[int, str, bool]], 
+               config: LogFilterConfig) -> str:
         """
-        Truncate filtered lines to fit within token limit.
+        Format filtered lines to fit within token limit.
         PRIORITY: Direct matches first, then context lines.
         
         Args:
             filtered_lines: Lines with (line_num, line, is_match)
-            add_summary: Whether to add summary header
-            prioritize_matches: If True, include all direct matches first, then fill with context
+            config: Configuration object
+            
+        Returns:
+            Formatted log content ready for LLM
         """
         # Reserve space for summary
-        summary_chars = 500 if add_summary else 0
-        available_chars = self.max_chars - summary_chars
+        summary_chars = 500
+        available_chars = config.max_chars - summary_chars
         
-        if prioritize_matches:
+        if config.prioritize_matches:
             # Separate direct matches from context
             direct_matches = [(ln, l, m) for ln, l, m in filtered_lines if m]
             context_lines = [(ln, l, m) for ln, l, m in filtered_lines if not m]
@@ -333,9 +390,9 @@ class LogFilter:
         
         result = '\n'.join(result_lines)
         
-        if add_summary:
-            summary = self._generate_summary(filtered_lines, len(result_lines))
-            result = summary + "\n" + "="*80 + "\n\n" + result
+        # Add summary
+        summary = self._generate_summary(filtered_lines, len(result_lines))
+        result = summary + "\n" + "="*80 + "\n\n" + result
         
         return result
     
@@ -357,83 +414,114 @@ Estimated tokens: ~{included_count * 20} (approximate)
 Legend: >>> = direct match, (indented) = context line
 """
         return summary
+
+
+class LogFileReader:
+    """Handles reading log files with error handling."""
     
-    def process(self, keywords: List[str], start_date: Optional[str] = None, 
-                end_date: Optional[str] = None, context_lines: int = 2,
-                deduplicate: bool = True, prioritize_by_severity: bool = False,
-                prioritize_matches: bool = True, max_results: Optional[int] = None) -> str:
+    def read_log_file(self, file_path: str) -> List[str]:
         """
-        Main processing function with optimizations.
+        Read log file with proper error handling.
+        
+        Args:
+            file_path: Path to the log file
+            
+        Returns:
+            List of log lines
+            
+        Raises:
+            FileNotFoundError: If file doesn't exist
+            PermissionError: If permission denied
+            Exception: For other I/O errors
+        """
+        try:
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                return f.readlines()
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Log file '{file_path}' not found.")
+        except PermissionError:
+            raise PermissionError(f"Permission denied accessing '{file_path}'.")
+        except Exception as e:
+            raise Exception(f"Error reading log file: {e}")
+
+
+class LogAnalyzer:
+    """Main orchestrator class that coordinates all log analysis components."""
+    
+    def __init__(self, config: LogFilterConfig):
+        """
+        Initialize log analyzer with configuration.
+        
+        Args:
+            config: Configuration object containing all parameters
+        """
+        self.config = config
+        
+        # Initialize components
+        self.timestamp_parser = LogTimestampParser()
+        self.date_filter = LogDateFilter(self.timestamp_parser)
+        self.keyword_filter = LogKeywordFilter()
+        self.deduplicator = LogDeduplicator()
+        self.prioritizer = LogPrioritizer()
+        self.formatter = TokenLimitedFormatter()
+        self.file_reader = LogFileReader()
+    
+    def analyze(self, keywords: List[str], start_date: Optional[str] = None, 
+                end_date: Optional[str] = None) -> str:
+        """
+        Main analysis function that orchestrates the entire process.
         
         Args:
             keywords: List of keywords to search for
             start_date: Optional start date (YYYY-MM-DD)
             end_date: Optional end date (YYYY-MM-DD)
-            context_lines: Number of context lines around matches
-            deduplicate: Whether to remove similar repetitive entries
-            prioritize_by_severity: Whether to prioritize ERROR/FATAL lines (optional)
-            prioritize_matches: Prioritize direct matches over context when truncating
-            max_results: Maximum number of direct matches to find (for performance)
             
         Returns:
             Filtered and formatted log content ready for LLM
         """
+        # Input validation
         if not keywords:
             return "Error: No keywords provided for filtering."
         
-        if context_lines < 0:
-            return "Error: context_lines must be non-negative."
-        
-        if max_results is not None and max_results <= 0:
-            return "Error: max_results must be positive if specified."
-        
+        # Step 1: Read log file
         print("Reading log file...")
         try:
-            with open(self.log_file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                lines = f.readlines()
-        except FileNotFoundError:
-            return f"Error: Log file '{self.log_file_path}' not found."
-        except PermissionError:
-            return f"Error: Permission denied accessing '{self.log_file_path}'."
-        except Exception as e:
-            return f"Error reading log file: {e}"
+            lines = self.file_reader.read_log_file(self.config.log_file_path)
+        except (FileNotFoundError, PermissionError, Exception) as e:
+            return f"Error: {e}"
         
         print(f"Total lines: {len(lines)}")
         
-        # Step 1: Filter by date range
+        # Step 2: Filter by date range
         if start_date or end_date:
             print("Filtering by date range...")
-            lines = self.filter_by_date_range(lines, start_date, end_date)
+            lines = self.date_filter.filter_by_date_range(lines, start_date, end_date)
             print(f"After date filtering: {len(lines)} lines")
         
-        # Step 2: Filter by keywords (OPTIMIZED with statistics)
+        # Step 3: Filter by keywords
         print(f"Filtering by keywords: {keywords}")
-        filtered_lines, keyword_stats = self.filter_by_keywords(
-            lines, keywords, context_lines, 
-            word_boundary=True, max_results=max_results
+        filtered_lines, keyword_stats = self.keyword_filter.filter_by_keywords(
+            lines, keywords, self.config.context_lines, 
+            word_boundary=True, max_results=self.config.max_results
         )
         print(f"After keyword filtering: {len(filtered_lines)} entries")
         
         if not filtered_lines:
             return "No matching log entries found for the given criteria."
         
-        # Step 3: Optional prioritization by severity
-        if prioritize_by_severity:
-            filtered_lines = self.prioritize_lines(filtered_lines)
+        # Step 4: Optional prioritization by severity
+        if self.config.prioritize_by_severity:
+            filtered_lines = self.prioritizer.prioritize_lines(filtered_lines)
         
-        # Step 4: Deduplicate similar entries
-        if deduplicate:
+        # Step 5: Deduplicate similar entries
+        if self.config.deduplicate:
             print("Deduplicating similar entries...")
-            filtered_lines = self.deduplicate_similar_lines(filtered_lines)
+            filtered_lines = self.deduplicator.deduplicate_similar_lines(filtered_lines)
             print(f"After deduplication: {len(filtered_lines)} entries")
         
-        # Step 5: Truncate to token limit (with match prioritization)
-        print("Truncating to token limit...")
-        result = self.truncate_to_token_limit(
-            filtered_lines, 
-            add_summary=True,
-            prioritize_matches=prioritize_matches
-        )
+        # Step 6: Format output
+        print("Formatting output...")
+        result = self.formatter.format(filtered_lines, self.config)
         
         print(f"Final output size: {len(result)} characters (~{len(result)//4} tokens)")
         
@@ -441,24 +529,28 @@ Legend: >>> = direct match, (indented) = context line
 
 
 def main():
-    """Example usage"""
+    """Example usage with the new OOP design."""
     # Configuration
-    log_file = "app.log"  # Log file path
-    keywords = ["snapshot", "periodic", "measurement"]  # Keywords
-    start_date = "2025-10-15"  # Optional
-    end_date = "2025-10-16"    # Optional
-    
-    # Create filter and process
-    log_filter = LogFilter(log_file, max_tokens=3000)
-    result = log_filter.process(
-        keywords=keywords,
-        start_date=start_date,
-        end_date=end_date,
+    config = LogFilterConfig(
+        log_file_path="app.log",
+        max_tokens=3000,
         context_lines=2,
         deduplicate=False,
         prioritize_by_severity=False,
         prioritize_matches=False,
         max_results=None
+    )
+    
+    keywords = ["snapshot", "periodic", "measurement"]
+    start_date = "2025-10-15"
+    end_date = "2025-10-16"
+    
+    # Create analyzer and process
+    analyzer = LogAnalyzer(config)
+    result = analyzer.analyze(
+        keywords=keywords,
+        start_date=start_date,
+        end_date=end_date
     )
     
     # Save output
