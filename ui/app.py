@@ -27,9 +27,10 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 # Global orchestrator instance
 orchestrator = LogAnalysisOrchestrator()
 
-# Store for uploaded files
-UPLOAD_FOLDER = 'uploads'
-Path(UPLOAD_FOLDER).mkdir(exist_ok=True)
+# Store for uploaded files - use assets folder structure
+project_root = Path(__file__).parent.parent
+UPLOAD_FOLDER = str(project_root / 'assets' / 'uploads')
+Path(UPLOAD_FOLDER).mkdir(parents=True, exist_ok=True)
 
 
 @app.route('/')
@@ -106,8 +107,9 @@ def upload_log():
         # Perform analysis
         result = orchestrator.analyze_issue(analysis_request)
         
-        # Save result
-        output_file = orchestrator.save_result(result)
+        # Save result - use assets folder structure with consistent timestamp
+        project_root = Path(__file__).parent.parent
+        output_file = orchestrator.save_result(result, str(project_root / 'assets' / 'results'), timestamp)
         
         # Return analysis result
         return jsonify({
@@ -118,7 +120,7 @@ def upload_log():
             'codebase_files': result.context_info['codebase']['total_files'],
             'documentation_items': result.context_info['documentation']['total_docs'],
             'result_file': output_file,
-            'llm_analysis': result.llm_analysis[:2000] + "..." if result.llm_analysis and len(result.llm_analysis) > 2000 else result.llm_analysis
+            'llm_analysis': result.llm_analysis
         })
         
     except Exception as e:
@@ -129,16 +131,28 @@ def upload_log():
 def download_result(analysis_id):
     """Download analysis result file."""
     try:
-        # Find the result file
-        results_dir = Path('analysis_results')
+        # Find the result file - use assets folder structure
+        project_root = Path(__file__).parent.parent
+        results_dir = project_root / 'assets' / 'results'
+        
+        # Debug: print the search pattern and directory
+        print(f"Searching for files matching: analysis_result_{analysis_id}*.json")
+        print(f"Search directory: {results_dir}")
+        
         result_files = list(results_dir.glob(f'analysis_result_{analysis_id}*.json'))
+        
+        print(f"Found files: {result_files}")
         
         if not result_files:
             return jsonify({'error': 'Analysis result not found'}), 404
         
-        return send_file(result_files[0], as_attachment=True)
+        # Get the most recent file if multiple matches
+        result_file = max(result_files, key=lambda f: f.stat().st_mtime)
+        
+        return send_file(result_file, as_attachment=True, download_name=f'analysis_result_{analysis_id}.json')
         
     except Exception as e:
+        print(f"Download error: {str(e)}")
         return jsonify({'error': f'Download failed: {str(e)}'}), 500
 
 

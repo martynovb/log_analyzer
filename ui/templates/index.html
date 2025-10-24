@@ -298,7 +298,7 @@
                     <div class="grid">
                         <div class="form-group">
                             <label for="max_tokens">Max Tokens:</label>
-                            <input type="number" id="max_tokens" name="max_tokens" value="3500" min="1000" max="10000">
+                            <input type="number" id="max_tokens" name="max_tokens" value="3500" min="1000">
                         </div>
                         <div class="form-group">
                             <label for="context_lines">Context Lines:</label>
@@ -342,7 +342,7 @@
                 </div>
                 <div class="form-group">
                     <label for="llm_max_tokens">Max Tokens:</label>
-                    <input type="number" id="llm_max_tokens" name="llm_max_tokens" placeholder="1000" value="1000" min="100" max="4000">
+                    <input type="number" id="llm_max_tokens" name="llm_max_tokens" placeholder="1000" value="1000" min="100">
                 </div>
             </div>
 
@@ -424,7 +424,7 @@
                             <pre style="background: #e8f5e8; padding: 10px; border-radius: 5px; margin-top: 10px; white-space: pre-wrap;">${data.llm_analysis || 'LLM analysis not available'}</pre>
                         </div>
                         <div class="result-item">
-                            <a href="/download/${data.analysis_id}" class="btn">📥 Download Full Results</a>
+                            <button onclick="downloadResults('${data.analysis_id}')" class="btn">📥 Download Full Results</button>
                         </div>
                     `;
                     result.style.display = 'block';
@@ -577,6 +577,36 @@
             setTimeout(() => {
                 errorMessage.style.display = 'none';
             }, 5000);
+        }
+        
+        async function downloadResults(analysisId) {
+            try {
+                const response = await fetch(`/download/${analysisId}`);
+                
+                if (response.ok) {
+                    // Create a blob from the response
+                    const blob = await response.blob();
+                    
+                    // Create a download link
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `analysis_result_${analysisId}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    
+                    // Clean up
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    
+                    showSuccess('Download started successfully!');
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Download failed');
+                }
+            } catch (error) {
+                showError(`Download failed: ${error.message}`);
+            }
         }
         
         // No auto-test since we need user configuration

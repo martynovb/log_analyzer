@@ -365,22 +365,27 @@ class LogAnalysisOrchestrator:
         print(f"Analysis completed in {processing_time_ms}ms")
         return result
     
-    def save_result(self, result: AnalysisResult, output_dir: str = "analysis_results") -> str:
+    def save_result(self, result: AnalysisResult, output_dir: str = "analysis_results", custom_timestamp: str = None) -> str:
         """
         Save analysis result to file.
         
         Args:
             result: Analysis result to save
             output_dir: Directory to save results
+            custom_timestamp: Optional custom timestamp string to use for filename
             
         Returns:
             Path to saved file
         """
         # Create output directory if it doesn't exist
-        Path(output_dir).mkdir(exist_ok=True)
+        Path(output_dir).mkdir(parents=True, exist_ok=True)
         
-        # Generate filename with timestamp
-        timestamp_str = result.timestamp.strftime("%Y%m%d_%H%M%S")
+        # Use custom timestamp if provided, otherwise use result timestamp
+        if custom_timestamp:
+            timestamp_str = custom_timestamp
+        else:
+            timestamp_str = result.timestamp.strftime("%Y%m%d_%H%M%S")
+        
         filename = f"analysis_result_{timestamp_str}.json"
         filepath = Path(output_dir) / filename
         

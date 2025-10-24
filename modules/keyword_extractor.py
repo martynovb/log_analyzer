@@ -117,10 +117,12 @@ class LocalLLMInterface(LLMInterface):
         """Analyze logs using the provided prompt."""
         try:
             response = self._make_llm_request(prompt)
-            return response
+            if not response or not isinstance(response, str):
+                raise Exception(f"Invalid response from LLM: {type(response)} - {response}")
+            return self._clean_llm_response(response)
         except Exception as e:
             self.logger.error(f"LLM log analysis failed: {e}")
-            raise Exception(f"Log analysis failed: {e}")
+            raise Exception(f"Log analysis failed: {str(e)}")
 
     def extract_keywords(self, issue_description: str) -> List[ExtractedKeyword]:
         """Extract keywords using LLM."""
@@ -178,7 +180,21 @@ Extract 5-10 most relevant keywords. Be specific and technical."""
             response = requests.post(url, json=payload, timeout=self.timeout)
             response.raise_for_status()
             result = response.json()
-            return result["choices"][0]["message"]["content"]
+            self.logger.debug(f"OpenAI response structure: {list(result.keys())}")
+            
+            # Handle OpenAI-compatible response structure
+            if "choices" in result and len(result["choices"]) > 0:
+                choice = result["choices"][0]
+                if "message" in choice and "content" in choice["message"]:
+                    return choice["message"]["content"]
+                elif "text" in choice:
+                    return choice["text"]
+                else:
+                    self.logger.warning(f"Unexpected choice structure: {choice}")
+                    return str(choice)
+            else:
+                self.logger.warning(f"Unexpected OpenAI response structure: {result}")
+                return str(result)
         except Exception as e:
             # Fallback to Ollama-style endpoint
             self.logger.warning(f"OpenAI-compatible endpoint failed: {e}, trying Ollama endpoint")
@@ -203,7 +219,43 @@ Extract 5-10 most relevant keywords. Be specific and technical."""
             if response.status_code != 200:
                 raise Exception(f"LLM request failed with status {response.status_code}")
 
-            return response.json()["response"]
+            response_data = response.json()
+            print(f"DEBUG: Ollama response structure: {list(response_data.keys())}")
+            print(f"DEBUG: Full response: {response_data}")
+            
+            # Try different possible response keys
+            if "response" in response_data:
+                return response_data["response"]
+            elif "content" in response_data:
+                return response_data["content"]
+            elif "text" in response_data:
+                return response_data["text"]
+            elif "message" in response_data:
+                return response_data["message"]
+            else:
+                # If none of the expected keys exist, return the whole response as string
+                print(f"WARNING: Unexpected response structure: {response_data}")
+                return str(response_data)
+
+    def _clean_llm_response(self, response: str) -> str:
+        """Clean LLM response by removing thinking tags and reasoning content."""
+        import re
+        
+        # Remove <think>...</think> tags and their content
+        cleaned = re.sub(r'<think>.*?</think>', '', response, flags=re.DOTALL)
+        
+        # Remove <think>...</think> tags and their content
+        cleaned = re.sub(r'<think>.*?</think>', '', cleaned, flags=re.DOTALL)
+        
+        # Remove any remaining thinking-related tags
+        cleaned = re.sub(r'<thinking>.*?</thinking>', '', cleaned, flags=re.DOTALL)
+        cleaned = re.sub(r'<reasoning>.*?</reasoning>', '', cleaned, flags=re.DOTALL)
+        
+        # Clean up extra whitespace and newlines
+        cleaned = re.sub(r'\n\s*\n\s*\n', '\n\n', cleaned)  # Replace multiple newlines with double newlines
+        cleaned = cleaned.strip()
+        
+        return cleaned
 
     def _parse_llm_response(self, response: str, original_text: str) -> List[ExtractedKeyword]:
         """Parse LLM response into ExtractedKeyword objects."""
