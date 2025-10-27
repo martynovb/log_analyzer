@@ -1,0 +1,48 @@
+[
+  {
+    "id": "ble-peripheral",
+    "keywords": ["ble", "peripheral", "bluetooth", "characteristic", "service", "cbatt", "cbattErrorDomain"],
+    "title": "BLE Peripheral Component",
+    "description": "Handles Bluetooth Low Energy peripheral operations including characteristic reads, writes, and value updates. Manages BLE service discovery and communication with connected devices.",
+    "category": "connectivity",
+    "files": ["BLEPeripheral.swift"],
+    "example_error": "CBATTErrorDomain Code=130"
+  },
+  {
+    "id": "sensor-connection-generator",
+    "keywords": ["sensor", "connection", "generator", "sensorLifeState", "configuration", "pairing"],
+    "title": "Sensor Connection Generator",
+    "description": "Manages sensor connection lifecycle, configuration, and state tracking. Handles pairing, configuration, and connection status for sensors.",
+    "category": "connectivity",
+    "files": ["SensorConnectionGenerator.swift"],
+    "example_error": "Configuration failed"
+  },
+  {
+    "id": "sensor-life-state",
+    "keywords": ["sensorLifeState", "configurationDone", "expired", "failed", "calibrationFailed", "errorAlert"],
+    "title": "Sensor Life State",
+    "description": "Tracks sensor lifecycle states including configuration, expiration, errors, and calibration status. Manages sensor state transitions and validation.",
+    "category": "state_management",
+    "files": ["SensorLifeStateEntity.swift"],
+    "example_error": "Sensor state failed"
+  },
+  {
+    "id": "time-change-service",
+    "keywords": ["timeChange", "timeOffset", "timeZoneOffset", "utcOffset", "sessionStart"],
+    "title": "Time Change Service",
+    "description": "Handles time synchronization and timezone adjustments for sensors. Manages time change calculations and session timing.",
+    "category": "time_management",
+    "files": ["TimeChangeService.swift"],
+    "example_error": "Time change calculation failed"
+  },
+  {
+    "id": "ble-service",
+    "keywords": ["BleService", "_updateSensorLifeState", "sensor connection", "ble service"],
+    "title": "BLE Service",
+    "description": "Main BLE service component that coordinates sensor connections, manages service discovery, and updates sensor state. Handles BLE-specific operations.",
+    "category": "connectivity",
+    "files": ["BleService.swift"],
+    "example_error": "BLE service error"
+  }
+]
+

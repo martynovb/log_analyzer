@@ -1,0 +1,144 @@
+[
+  {
+    "id": "cbatt-error-130",
+    "keywords": ["CBATTErrorDomain", "Code=130", "Unknown ATT error", "cbatt", "ATT error"],
+    "title": "CBATTErrorDomain Code=130",
+    "description": "Unknown ATT (Attribute Protocol) error during BLE communication. This typically indicates a problem with Bluetooth Low Energy data transmission or characteristic access.",
+    "category": "ble_error",
+    "severity": "error",
+    "possible_causes": [
+      "Signal interference or range issues",
+      "Device incompatibility",
+      "Characteristic permissions mismatch",
+      "Device disconnected during operation",
+      "Bluetooth stack issue"
+    ],
+    "solutions": [
+      "Check Bluetooth signal strength and proximity",
+      "Restart Bluetooth connection",
+      "Verify characteristic permissions",
+      "Check for device-specific compatibility issues",
+      "Review recent changes to BLE communication code"
+    ],
+    "related_components": ["BLEPeripheral", "BleService"]
+  },
+  {
+    "id": "configuration-failed",
+    "keywords": ["configurationFailed", "configuration failed", "setup failed", "config error", "setup error"],
+    "title": "Configuration Failed",
+    "description": "Sensor configuration process failed. This prevents the sensor from being ready for use.",
+    "category": "configuration_error",
+    "severity": "error",
+    "possible_causes": [
+      "Incomplete configuration steps",
+      "Device communication timeout",
+      "Invalid configuration parameters",
+      "Sensor hardware issue",
+      "State transition error"
+    ],
+    "solutions": [
+      "Restart configuration process",
+      "Check sensor hardware status",
+      "Verify configuration parameters",
+      "Check network/connection stability",
+      "Review sensor logs for detailed errors"
+    ],
+    "related_components": ["SensorConnectionGenerator", "SensorLifeState"]
+  },
+  {
+    "id": "pairing-failed",
+    "keywords": ["pairing", "failed", "pair", "connection", "connect", "gst", "sensor"],
+    "title": "Pairing Failed",
+    "description": "Failed to establish pairing with sensor device. This is critical for sensor communication.",
+    "category": "connection_error",
+    "severity": "critical",
+    "possible_causes": [
+      "Bluetooth not enabled",
+      "Device not in pairing mode",
+      "Signal interference",
+      "Device compatibility issue",
+      "Authentication failure",
+      "Previous pairing conflict"
+    ],
+    "solutions": [
+      "Ensure Bluetooth is enabled",
+      "Reset sensor and try again",
+      "Move closer to device",
+      "Remove and re-add device",
+      "Check for Bluetooth interference",
+      "Verify device compatibility",
+      "Clear previous pairing data"
+    ],
+    "related_components": ["BLEPeripheral", "SensorConnectionGenerator", "BleService"]
+  },
+  {
+    "id": "calibration-failed",
+    "keywords": ["calibrationFailed", "calibration", "failed", "calibrate"],
+    "title": "Calibration Failed",
+    "description": "Sensor calibration process failed. Calibration is required for accurate readings.",
+    "category": "calibration_error",
+    "severity": "warning",
+    "possible_causes": [
+      "Sensor movement during calibration",
+      "Invalid calibration data",
+      "Hardware malfunction",
+      "Process interruption",
+      "Temperature/humidity issues"
+    ],
+    "solutions": [
+      "Keep sensor stationary during calibration",
+      "Retry calibration process",
+      "Check sensor hardware",
+      "Ensure proper environmental conditions",
+      "Review calibration parameters"
+    ],
+    "related_components": ["SensorLifeState", "CalibrationManager"]
+  },
+  {
+    "id": "error-alert",
+    "keywords": ["errorAlert", "alert", "error", "warning", "notification"],
+    "title": "Error Alert",
+    "description": "General error alert raised by the sensor. Indicates a problem that requires attention.",
+    "category": "general_error",
+    "severity": "warning",
+    "possible_causes": [
+      "Sensor detected abnormal condition",
+      "Hardware malfunction",
+      "Communication error",
+      "Data inconsistency",
+      "Resource limitation"
+    ],
+    "solutions": [
+      "Check sensor status and logs",
+      "Verify sensor is functioning properly",
+      "Restart sensor if possible",
+      "Review recent operations",
+      "Contact support if persistent"
+    ],
+    "related_components": ["SensorLifeState", "ErrorHandler"]
+  },
+  {
+    "id": "timeout-error",
+    "keywords": ["timeout", "timed out", "wait", "no response", "expired"],
+    "title": "Timeout Error",
+    "description": "Operation timed out waiting for response. This typically indicates communication or processing delays.",
+    "category": "timeout_error",
+    "severity": "error",
+    "possible_causes": [
+      "Network connectivity issues",
+      "Device not responding",
+      "Processing taking too long",
+      "Resource contention",
+      "Blocking operations"
+    ],
+    "solutions": [
+      "Increase timeout values if appropriate",
+      "Check device connectivity",
+      "Optimize slow operations",
+      "Implement retry mechanism",
+      "Review resource usage"
+    ],
+    "related_components": ["BLEPeripheral", "ConnectionManager", "TimeoutHandler"]
+  }
+]
+

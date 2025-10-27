@@ -28,6 +28,7 @@ from datetime import datetime
 # Import our existing log analyzer components
 from modules.log_analyzer import LogAnalyzer, LogFilterConfig
 from modules.keyword_extractor import KeywordExtractor, KeywordType, ExtractedKeyword
+from modules.context_retriever import ContextRetriever
 
 
 @dataclass
@@ -237,18 +238,38 @@ Please provide a detailed analysis with specific references to log entries and c
         
         formatted = f"### {context_type} Information\n"
         
+        # Handle codebase/files context
         if 'relevant_files' in context:
             formatted += f"**Relevant Files ({context.get('total_files', 0)}):**\n"
             for file in context['relevant_files']:
                 formatted += f"- {file}\n"
         
+        # Handle documentation context
         if 'relevant_documentation' in context:
             formatted += f"**Relevant Documentation ({context.get('total_docs', 0)}):**\n"
             for doc in context['relevant_documentation']:
                 formatted += f"- {doc}\n"
         
-        formatted += f"**Search Method:** {context.get('retrieval_method', 'Unknown')}\n"
-        formatted += f"**Search Keywords:** {', '.join(context.get('search_keywords', []))}\n"
+        # Handle detailed items if available (for JSON-based context)
+        if 'relevant_items' in context:
+            items = context['relevant_items']
+            if context_type == "Codebase":
+                formatted += f"**Components ({len(items)}):**\n"
+            for item in items:
+                if isinstance(item, dict):
+                    item_title = item.get('title', item.get('id', 'Unknown'))
+                    item_content = item.get('content', '')
+                    if item_content:
+                        # Truncate long content
+                        if len(item_content) > 500:
+                            item_content = item_content[:500] + "..."
+                        formatted += f"\n**{item_title}:**\n{item_content}\n"
+                    else:
+                        formatted += f"- {item_title}\n"
+        
+        formatted += f"\n**Search Method:** {context.get('retrieval_method', 'Unknown')}\n"
+        if 'search_keywords' in context:
+            formatted += f"**Search Keywords:** {', '.join(context.get('search_keywords', []))}\n"
         
         return formatted
 
@@ -264,7 +285,8 @@ class LogAnalysisOrchestrator:
             context_retriever: Optional context retriever implementation
         """
         self.keyword_extractor = KeywordExtractor()
-        self.context_retriever = context_retriever or MockContextRetriever()
+        # Use JSON-based ContextRetriever
+        self.context_retriever = context_retriever or ContextRetriever()
         self.prompt_creator = PromptCreator()
     
     def analyze_issue(self, request: AnalysisRequest) -> AnalysisResult:

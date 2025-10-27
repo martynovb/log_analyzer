@@ -1,0 +1,51 @@
+[
+  {
+    "id": "ble-pairing-guide",
+    "keywords": ["pairing", "pair", "failed", "failure", "connection", "setup", "configure"],
+    "title": "BLE Pairing Guide",
+    "description": "Guide for pairing Bluetooth Low Energy devices. Covers the pairing process, common failures, and troubleshooting steps for connection issues.",
+    "category": "connectivity",
+    "content": "BLE pairing involves establishing a secure connection between the app and sensor. Common issues include: 1) Connection timeouts 2) Security key mismatches 3) Device compatibility issues 4) Signal interference."
+  },
+  {
+    "id": "error-handling",
+    "keywords": ["error", "exception", "fail", "failed", "failure", "crash", "timeout", "bug"],
+    "title": "Error Handling Best Practices",
+    "description": "Best practices for error handling in the application. Includes error logging, exception management, and recovery strategies.",
+    "category": "error_management",
+    "content": "Errors should be logged with context and severity. Use structured logging with appropriate log levels. Implement retry mechanisms for transient failures. Provide meaningful error messages to users."
+  },
+  {
+    "id": "sensor-configuration",
+    "keywords": ["configuration", "configurationDone", "configurationFailed", "setup", "config"],
+    "title": "Sensor Configuration Process",
+    "description": "Documentation on how sensor configuration works, common configuration errors, and troubleshooting steps.",
+    "category": "configuration",
+    "content": "Sensor configuration involves setting up device parameters, calibration, and validation. Configuration must complete before the sensor can be used. Common issues: incomplete configuration, validation failures, timeout errors."
+  },
+  {
+    "id": "state-management",
+    "keywords": ["state", "status", "lifecycle", "tracking", "monitoring", "update"],
+    "title": "State Management",
+    "description": "Overview of application state management patterns, including sensor state tracking and lifecycle management.",
+    "category": "architecture",
+    "content": "State should be managed consistently with clear transitions. Use state machines for complex workflows. Implement proper state persistence and recovery mechanisms."
+  },
+  {
+    "id": "debugging-guide",
+    "keywords": ["debug", "troubleshoot", "diagnose", "analyze", "investigate", "log"],
+    "title": "Debugging and Troubleshooting",
+    "description": "Guide for debugging common issues and analyzing logs to identify problems.",
+    "category": "troubleshooting",
+    "content": "Use structured logs with timestamps and context. Check error codes and exception details. Review connection states and transitions. Monitor resource usage and performance metrics."
+  },
+  {
+    "id": "performance-optimization",
+    "keywords": ["performance", "slow", "speed", "optimize", "efficient", "lag"],
+    "title": "Performance Optimization",
+    "description": "Best practices for optimizing application performance and reducing latency.",
+    "category": "performance",
+    "content": "Monitor key performance indicators. Implement caching strategies. Optimize database queries. Use asynchronous operations where appropriate. Profile to identify bottlenecks."
+  }
+]
+
