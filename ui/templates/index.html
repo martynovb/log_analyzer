@@ -321,7 +321,7 @@
                 </div>
                 
         <div class="form-section">
-            <h2>🤖 LLM Configuration (Required)</h2>
+            <h2>🤖 LLM Configuration</h2>
             <p style="margin-bottom: 20px; color: #7f8c8d;">Configure your local LLM for keyword extraction. Both URL and Model name are required.</p>
 
             <div class="grid">
@@ -331,18 +331,18 @@
                 </div>
                 <div class="form-group">
                     <label for="llm_model">Model Name: <span style="color: red;">*</span></label>
-                    <input type="text" id="llm_model" name="llm_model" placeholder="qwen2.5-coder-32b-instruct" required>
+                    <input type="text" id="llm_model" name="llm_model" placeholder="model name" required>
                 </div>
             </div>
 
             <div class="grid">
                 <div class="form-group">
                     <label for="llm_timeout">Timeout (seconds):</label>
-                    <input type="number" id="llm_timeout" name="llm_timeout" placeholder="120" value="120" min="5" max="300">
+                    <input type="number" id="llm_timeout" name="llm_timeout" placeholder="120" value="120" min="5">
                 </div>
                 <div class="form-group">
                     <label for="llm_max_tokens">Max Tokens:</label>
-                    <input type="number" id="llm_max_tokens" name="llm_max_tokens" placeholder="1000" value="1000" min="100">
+                    <input type="number" id="llm_max_tokens" name="llm_max_tokens" placeholder="" value="4000" min="100">
                 </div>
             </div>
 

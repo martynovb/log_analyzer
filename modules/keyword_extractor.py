@@ -52,7 +52,7 @@ class LocalLLMInterface(LLMInterface):
 
     def __init__(self,
                  base_url: str = "http://127.0.0.1:1234",
-                 model: str = "qwen2.5-coder-32b-instruct",
+                 model: str = "deepseek/deepseek-r1-0528-qwen3-8b",
                  timeout: int = 120,
                  max_tokens: int = 1000):
         """
@@ -74,11 +74,18 @@ class LocalLLMInterface(LLMInterface):
         self._test_connection()
 
     def _test_connection(self) -> bool:
-        """Test connection to local LLM."""
+        """Test connection to local LLM and update model name if needed."""
         try:
             # Try OpenAI-compatible endpoint first (for LM Studio)
             response = requests.get(f"{self.base_url}/v1/models", timeout=5)
             if response.status_code == 200:
+                models_data = response.json()
+                if "data" in models_data and len(models_data["data"]) > 0:
+                    # Use the first available model
+                    actual_model = models_data["data"][0]["id"]
+                    if actual_model != self.model:
+                        self.logger.info(f"Detected model: {actual_model} (default was: {self.model})")
+                        self.model = actual_model
                 self.logger.info(f"Connected to local LLM (OpenAI-compatible) at {self.base_url}")
                 return True
         except Exception as e:
@@ -102,9 +109,16 @@ class LocalLLMInterface(LLMInterface):
             # Try OpenAI-compatible endpoint first (for LM Studio)
             response = requests.get(f"{self.base_url}/v1/models", timeout=5)
             if response.status_code == 200:
+                # Update model name if we got a valid response
+                models_data = response.json()
+                if "data" in models_data and len(models_data["data"]) > 0:
+                    actual_model = models_data["data"][0]["id"]
+                    if actual_model != self.model:
+                        self.logger.debug(f"Detected model: {actual_model}, updating from {self.model}")
+                        self.model = actual_model
                 return True
-        except:
-            pass
+        except Exception as e:
+            self.logger.debug(f"OpenAI-compatible endpoint check failed: {e}")
 
         try:
             # Fallback to Ollama-style endpoint
@@ -130,10 +144,16 @@ class LocalLLMInterface(LLMInterface):
         
         try:
             response = self._make_llm_request(prompt)
-            return self._parse_llm_response(response, issue_description)
+            keywords = self._parse_llm_response(response, issue_description)
+            
+            # If no keywords were extracted, raise exception
+            if not keywords:
+                raise Exception("No keywords extracted by LLM")
+            
+            return keywords
         except Exception as e:
             self.logger.error(f"LLM keyword extraction failed: {e}")
-            raise Exception(f"LLM extraction failed: {e}")
+            raise Exception(f"LLM keyword extraction failed: {e}")
 
     def _create_keyword_extraction_prompt(self, issue_description: str) -> str:
         """Create a prompt for keyword extraction."""
@@ -177,7 +197,12 @@ Extract 5-10 most relevant keywords. Be specific and technical."""
         }
 
         try:
+            self.logger.debug(f"Making LLM request to {url} with model: {self.model}")
+            self.logger.debug(f"Request payload: {json.dumps(payload, indent=2)}")
+            
             response = requests.post(url, json=payload, timeout=self.timeout)
+            self.logger.debug(f"Response status: {response.status_code}")
+            
             response.raise_for_status()
             result = response.json()
             self.logger.debug(f"OpenAI response structure: {list(result.keys())}")
@@ -195,47 +220,20 @@ Extract 5-10 most relevant keywords. Be specific and technical."""
             else:
                 self.logger.warning(f"Unexpected OpenAI response structure: {result}")
                 return str(result)
+        except requests.exceptions.HTTPError as e:
+            # Parse error details from response
+            try:
+                error_detail = response.json()
+                self.logger.error(f"HTTP Error {response.status_code}: {error_detail}")
+                raise Exception(f"LLM request failed with status {response.status_code}: {error_detail.get('error', {}).get('message', str(error_detail))}")
+            except:
+                self.logger.error(f"HTTP Error {response.status_code}: {response.text}")
+                raise Exception(f"LLM request failed with status {response.status_code}: {response.text}")
         except Exception as e:
-            # Fallback to Ollama-style endpoint
-            self.logger.warning(f"OpenAI-compatible endpoint failed: {e}, trying Ollama endpoint")
-
-            payload = {
-                "model": self.model,
-                "prompt": prompt,
-                "stream": False,
-                "options": {
-                    "temperature": 0.1,
-                    "top_p": 0.9,
-                    "max_tokens": self.max_tokens
-                }
-            }
-
-            response = requests.post(
-                f"{self.base_url}/api/generate",
-                json=payload,
-                timeout=self.timeout
-            )
-
-            if response.status_code != 200:
-                raise Exception(f"LLM request failed with status {response.status_code}")
-
-            response_data = response.json()
-            print(f"DEBUG: Ollama response structure: {list(response_data.keys())}")
-            print(f"DEBUG: Full response: {response_data}")
-            
-            # Try different possible response keys
-            if "response" in response_data:
-                return response_data["response"]
-            elif "content" in response_data:
-                return response_data["content"]
-            elif "text" in response_data:
-                return response_data["text"]
-            elif "message" in response_data:
-                return response_data["message"]
-            else:
-                # If none of the expected keys exist, return the whole response as string
-                print(f"WARNING: Unexpected response structure: {response_data}")
-                return str(response_data)
+            # If OpenAI endpoint fails, raise the error instead of trying Ollama endpoint
+            # This prevents the "Unexpected endpoint or method" error
+            self.logger.error(f"OpenAI-compatible endpoint failed: {e}")
+            raise Exception(f"LLM request failed: {e}")
 
     def _clean_llm_response(self, response: str) -> str:
         """Clean LLM response by removing thinking tags and reasoning content."""
@@ -259,36 +257,30 @@ Extract 5-10 most relevant keywords. Be specific and technical."""
 
     def _parse_llm_response(self, response: str, original_text: str) -> List[ExtractedKeyword]:
         """Parse LLM response into ExtractedKeyword objects."""
-        try:
-            # Try to extract JSON from response
-            json_start = response.find('{')
-            json_end = response.rfind('}') + 1
+        # Try to extract JSON from response
+        json_start = response.find('{')
+        json_end = response.rfind('}') + 1
 
-            if json_start == -1 or json_end == 0:
-                raise ValueError("No JSON found in response")
+        if json_start == -1 or json_end == 0:
+            raise ValueError("No JSON found in response")
 
-            json_str = response[json_start:json_end]
-            data = json.loads(json_str)
+        json_str = response[json_start:json_end]
+        data = json.loads(json_str)
 
-            extracted_keywords = []
-            for item in data.get("keywords", []):
-                keyword_type = self._map_keyword_type(item.get("type", "technical"))
-                confidence = float(item.get("confidence", 0.7))
+        extracted_keywords = []
+        for item in data.get("keywords", []):
+            keyword_type = self._map_keyword_type(item.get("type", "technical"))
+            confidence = float(item.get("confidence", 0.7))
 
-                extracted_keywords.append(ExtractedKeyword(
-                    keyword=item["keyword"],
-                    keyword_type=keyword_type,
-                    confidence=confidence,
-                    context=self._extract_context(original_text, item["keyword"]),
-                    extraction_method="llm"
-                ))
+            extracted_keywords.append(ExtractedKeyword(
+                keyword=item["keyword"],
+                keyword_type=keyword_type,
+                confidence=confidence,
+                context=self._extract_context(original_text, item["keyword"]),
+                extraction_method="llm"
+            ))
 
-            return extracted_keywords
-
-        except (json.JSONDecodeError, KeyError, ValueError) as e:
-            self.logger.error(f"Failed to parse LLM response: {e}")
-            # Fallback: extract keywords from response text
-            return self._fallback_keyword_extraction(response, original_text)
+        return extracted_keywords
 
     def _map_keyword_type(self, llm_type: str) -> KeywordType:
         """Map LLM keyword type to our KeywordType enum."""
@@ -314,29 +306,6 @@ Extract 5-10 most relevant keywords. Be specific and technical."""
         end = min(len(text), index + len(keyword) + context_window)
 
         return text[start:end].strip()
-
-    def _fallback_keyword_extraction(self, response: str, original_text: str) -> List[ExtractedKeyword]:
-        """Fallback keyword extraction from response text."""
-        # Simple fallback: extract words that appear in both response and original text
-        response_words = set(re.findall(r'\b\w+\b', response.lower()))
-        original_words = set(re.findall(r'\b\w+\b', original_text.lower()))
-
-        common_words = response_words.intersection(original_words)
-        # Filter out common stop words
-        stop_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should'}
-        keywords = [word for word in common_words if word not in stop_words and len(word) > 3]
-
-        extracted_keywords = []
-        for keyword in keywords[:5]:  # Limit to 5 keywords
-            extracted_keywords.append(ExtractedKeyword(
-                keyword=keyword,
-                keyword_type=KeywordType.TECHNICAL,
-                confidence=0.5,
-                context=self._extract_context(original_text, keyword),
-                extraction_method="llm_fallback"
-            ))
-
-        return extracted_keywords
 
 
 class MockLLMInterface(LLMInterface):
@@ -424,7 +393,7 @@ class KeywordExtractor:
             List of extracted keywords with metadata
         """
         if not issue_description or not issue_description.strip():
-            return []
+            raise ValueError("Issue description cannot be empty")
         
         if not self.llm_interface or not self.llm_interface.is_available():
             raise Exception("LLM is not available. Please ensure your LM Studio is running at http://127.0.0.1:1234")
@@ -436,7 +405,7 @@ class KeywordExtractor:
             return llm_keywords
         except Exception as e:
             self.logger.error(f"LLM extraction failed: {e}")
-            raise Exception(f"Keyword extraction failed: {e}")
+            raise Exception(f"LLM keyword extraction failed: {e}")
     
     def is_llm_available(self) -> bool:
         """Check if LLM is available."""

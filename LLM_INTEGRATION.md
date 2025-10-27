@@ -10,7 +10,7 @@ The keyword extractor has been enhanced with LLM (Large Language Model) integrat
 - **Local LLM Support**: Connects to local LLM servers (Ollama, etc.)
 - **Intelligent Extraction**: Uses AI to understand context and extract relevant keywords
 - **Structured Output**: Returns keywords with confidence scores and metadata
-- **Fallback Mechanism**: Automatically falls back to rule-based extraction if LLM is unavailable
+- **Fallback Mechanism**: Automatically falls back to heuristic keyword extraction if LLM is unavailable
 
 ### 🔧 **Flexible Configuration**
 - **Multiple Models**: Support for various LLM models (Llama2, CodeLlama, Mistral, etc.)
@@ -20,7 +20,7 @@ The keyword extractor has been enhanced with LLM (Large Language Model) integrat
 ### 📊 **Enhanced Metadata**
 - **Keyword Types**: Categorizes keywords (technical, error, component, action, functional)
 - **Confidence Scores**: Provides confidence levels for each extracted keyword
-- **Extraction Methods**: Tracks whether keywords came from LLM or rule-based extraction
+- **Extraction Methods**: Tracks whether keywords came from LLM or heuristic extraction
 - **Context Information**: Includes surrounding context for each keyword
 
 ## Architecture
@@ -48,10 +48,10 @@ class LLMInterface(ABC):
 #### 3. **MockLLMInterface**
 - Testing and development purposes
 - Always available for consistent testing
-- Uses rule-based extraction as mock implementation
+- Uses heuristic extraction as mock implementation
 
 #### 4. **Enhanced KeywordExtractor**
-- Integrates both LLM and rule-based extraction
+- Integrates LLM extraction with heuristic fallback
 - Configurable extraction methods
 - Automatic fallback handling
 - Rich metadata and reporting
@@ -90,7 +90,7 @@ extractor.configure_llm(
 if extractor.is_llm_available():
     print("LLM is ready for keyword extraction")
 else:
-    print("LLM unavailable, using rule-based extraction")
+    print("LLM unavailable, using heuristic extraction")
 ```
 
 ### Advanced Usage
@@ -103,7 +103,7 @@ error_keywords = extractor.get_keywords_by_type(issue_description, KeywordType.E
 # Get extraction method statistics
 methods_used = extractor.get_extraction_methods_used(issue_description)
 print(f"LLM keywords: {methods_used.get('llm', 0)}")
-print(f"Rule-based keywords: {methods_used.get('rule_based', 0)}")
+print(f"Heuristic keywords: {methods_used.get('fallback', 0)}")
 
 # Get comprehensive summary
 summary = extractor.get_keyword_summary(issue_description)
@@ -154,7 +154,7 @@ The system is designed to work with any Ollama-compatible API. For custom server
 KeywordExtractor(
     llm_interface=None,        # Custom LLM interface
     use_llm=True,              # Enable LLM extraction
-    fallback_to_rules=True     # Fallback to rule-based if LLM fails
+    fallback_to_heuristics=True     # Fallback to heuristic extraction if LLM fails
 )
 ```
 
@@ -204,7 +204,7 @@ Extract 10-15 most relevant keywords. Be specific and technical.
 ## Error Handling
 
 ### Connection Errors
-- Automatic fallback to rule-based extraction
+- Automatic fallback to heuristic extraction
 - Logging of connection issues
 - Graceful degradation
 

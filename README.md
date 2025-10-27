@@ -185,7 +185,7 @@ lsof -ti:5000 | xargs kill -9
 
 #### 5. LLM Connection Issues
 ```bash
-# If LLM is not available, the system automatically falls back to rule-based extraction
+# If LLM is not available, the system automatically falls back to heuristic keyword extraction
 # Check Ollama status:
 curl http://127.0.0.1:1234/api/tags
 # If not running, start Ollama:
@@ -258,7 +258,7 @@ log_analyzer/
 ├── main.py                          # CLI entrypoint (minimal)
 ├── log_analyzer_system.py           # Modular orchestration (keyword extraction, context, prompts)
 ├── modules/
-│   ├── keyword_extractor.py         # LLM + rule-based keyword extraction
+│   ├── keyword_extractor.py         # LLM + heuristic keyword extraction
 │   ├── context_retriever.py         # Context retriever interfaces/impls
 │   ├── prompt_generator.py          # Prompt creation (if used separately)
 │   └── components.py                # Other shared components
