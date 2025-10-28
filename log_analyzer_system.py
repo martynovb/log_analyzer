@@ -74,9 +74,10 @@ class LogAnalysisOrchestrator:
         )
         
         # Step 3: Retrieve context
-        print("Retrieving codebase and documentation context...")
+        print("Retrieving codebase, documentation and error contexts...")
         codebase_context = self.context_retriever.retrieve_codebase_context(all_keywords)
         documentation_context = self.context_retriever.retrieve_documentation_context(all_keywords)
+        error_context = self.context_retriever.retrieve_error_context(all_keywords)
         
         # Step 4: Format context and create comprehensive prompt
         print("Creating analysis prompt...")
@@ -84,7 +85,9 @@ class LogAnalysisOrchestrator:
         # Format context using PromptGenerator
         codebase_text = self.prompt_generator.format_context(codebase_context, "Codebase")
         docs_text = self.prompt_generator.format_context(documentation_context, "Documentation")
-        combined_context = f"{codebase_text}\n\n{docs_text}" if docs_text else codebase_text
+        errors_text = self.prompt_generator.format_context(error_context, "Errors")
+        parts = [p for p in [codebase_text, docs_text, errors_text] if p]
+        combined_context = "\n\n".join(parts)
         
         # Create AnalysisData for prompt generation
         analysis_data = AnalysisData(
@@ -120,7 +123,8 @@ class LogAnalysisOrchestrator:
             filtered_logs=filtered_logs,
             context_info={
                 'codebase': codebase_context,
-                'documentation': documentation_context
+                'documentation': documentation_context,
+                'errors': error_context
             },
             generated_prompt=generated_prompt,
             llm_analysis=llm_analysis,

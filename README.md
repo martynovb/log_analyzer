@@ -1,293 +1,183 @@
-# Log Analyzer - Modular Architecture
+# Log Analyzer
 
-A comprehensive log analysis system with intelligent issue analysis, keyword extraction, and context-aware prompt generation.
+An intelligent log analysis tool with LLM-powered keyword extraction, context retrieval, and automated issue analysis.
 
-## 🚀 Complete Setup Guide (From Scratch)
+## 🚀 Installation
 
 ### Prerequisites
-- **Python 3.10+** (3.11, 3.12, 3.13 recommended)
-- **pip** (Python package installer)
-- **Git** (for cloning the repository)
-- **Web browser** (for the UI)
-- **Optional**: Local LLM server (Ollama) for enhanced keyword extraction
+- Python 3.10+ (3.11, 3.12, or 3.13 recommended)
+- pip (Python package installer)
+- Optional: Local LLM server (LM Studio or Ollama) for keyword extraction
 
-### Step 1: Environment Setup
-
-#### Option A: Using Virtual Environment (Recommended)
-```bash
-# Create a new virtual environment
-python -m venv log_analyzer_env
-
-# Activate the virtual environment
-# On Windows:
-log_analyzer_env\Scripts\activate
-# On macOS/Linux:
-source log_analyzer_env/bin/activate
-
-# Verify Python version
-python --version
-```
-
-#### Option B: Using Conda
-```bash
-# Create a new conda environment
-conda create -n log_analyzer python=3.11
-conda activate log_analyzer
-```
-
-### Step 2: Clone and Install Dependencies
+### Setup
 
 ```bash
-# Clone the repository (if not already done)
+# Clone the repository
 git clone <repository-url>
 cd log_analyzer
 
-# Install all required dependencies
-pip install -r requirements.txt
+# Create virtual environment (recommended)
+python -m venv log_analyzer_env
 
-# Verify installation
-pip list
-```
-
-**Expected dependencies:**
-- Flask==2.3.3
-- Werkzeug==2.3.7
-- Jinja2==3.1.2
-- MarkupSafe==2.1.3
-- itsdangerous==2.1.2
-- click==8.1.7
-- blinker==1.6.2
-- requests==2.31.0
-
-### Step 3: Test Installation
-
-```bash
-# Test CLI functionality
-python main.py --help
-
-# Test with sample keywords (if you have app.log)
-python main.py --keywords "test,error" --output test_output.txt
-```
-
-### Step 4: Run the Web UI
-
-```bash
-# Start the Flask web server
-python ui/app.py
-```
-
-**Expected output:**
-```
- * Running on all addresses (0.0.0.0)
- * Running on http://127.0.0.1:5000
- * Running on http://[your-ip]:5000
- * Debug mode: on
-```
-
-**Access the UI:**
-- Open your web browser
-- Navigate to: `http://localhost:5000` or `http://127.0.0.1:5000`
-
-### Step 5: Optional - LLM Enhancement Setup
-
-For enhanced keyword extraction using AI:
-
-#### Install Ollama (Local LLM Server)
-1. **Download Ollama**: Visit https://ollama.ai and download for your OS
-2. **Install and start Ollama**:
-   ```bash
-   # After installation, start the server
-   ollama serve
-   ```
-3. **Pull a model**:
-   ```bash
-   # Pull a recommended model
-   ollama pull mistral
-   # Or use the default configured model
-   ollama pull mistralai/mistral-7b-instruct-v0.3
-   ```
-
-#### Configure LLM Settings (if needed)
-The system is pre-configured for:
-- **Base URL**: `http://127.0.0.1:1234` (default Ollama port)
-- **Model**: `mistralai/mistral-7b-instruct-v0.3`
-
-To change these settings, edit `modules/keyword_extractor.py`:
-```python
-# In LocalLLMInterface.__init__()
-base_url: str = "http://127.0.0.1:1234",  # Change port if needed
-model: str = "mistralai/mistral-7b-instruct-v0.3",  # Change model if needed
-```
-
-## 🎯 Quick Start Guide
-
-### CLI Usage
-```bash
-# Basic analysis
-python main.py --log-file app.log --keywords "error,timeout,exception"
-
-# Advanced analysis with date range
-python main.py --log-file app.log --keywords "snapshot,periodic" --start-date 2025-10-15 --end-date 2025-10-16 --deduplicate --prioritize-severity
-
-# Help and all options
-python main.py --help
-```
-
-### Web UI Usage
-1. **Start the UI**: `python ui/app.py`
-2. **Open browser**: `http://localhost:5000`
-3. **Upload log file**: Click "Choose File" and select your `.log` file
-4. **Describe the issue**: Enter a detailed description of the problem
-5. **Preview keywords**: Click "Preview Keywords" to see extracted keywords
-6. **Configure analysis**: Set date range, context lines, etc.
-7. **Run analysis**: Click "Analyze Logs"
-8. **Download results**: Click "Download Full Results"
-
-## 🔧 Troubleshooting
-
-### Common Issues
-
-#### 1. Import Errors
-```bash
-# Error: ModuleNotFoundError: No module named 'log_analyzer_system'
-# Solution: Ensure you're in the project root directory
-cd /path/to/log_analyzer
-python ui/app.py
-```
-
-#### 2. Flask Not Found
-```bash
-# Error: ModuleNotFoundError: No module named 'flask'
-# Solution: Install dependencies
-pip install -r requirements.txt
-```
-
-#### 3. Virtual Environment Issues
-```bash
-# If virtual environment is not activated
+# Activate virtual environment
 # Windows:
 log_analyzer_env\Scripts\activate
 # macOS/Linux:
 source log_analyzer_env/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
 ```
 
-#### 4. Port Already in Use
+## 🏃 Running the Application
+
+### Web UI (Recommended)
+
 ```bash
-# Error: Address already in use
-# Solution: Kill existing process or use different port
-# Kill process on port 5000:
-# Windows:
-netstat -ano | findstr :5000
-taskkill /PID <PID_NUMBER> /F
-# macOS/Linux:
-lsof -ti:5000 | xargs kill -9
+# Start the web server
+python ui/app.py
+
+# Open browser to: http://localhost:5000
 ```
 
-#### 5. LLM Connection Issues
+### CLI Tool
+
 ```bash
-# If LLM is not available, the system automatically falls back to heuristic keyword extraction
-# Check Ollama status:
-curl http://127.0.0.1:1234/api/tags
-# If not running, start Ollama:
-ollama serve
+# Basic usage
+python main.py --log-file app.log --keywords "error,timeout"
+
+# Advanced usage
+python main.py --log-file app.log --keywords "snapshot,periodic" \
+    --start-date 2025-10-15 --end-date 2025-10-16 \
+    --max-tokens 3500 --deduplicate --prioritize-severity
 ```
 
-### File Structure Verification
-Ensure your project structure looks like this:
+## 📁 Project Structure
+
 ```
 log_analyzer/
-├── main.py
-├── log_analyzer_system.py
-├── modules/
-│   ├── keyword_extractor.py
-│   ├── context_retriever.py
-│   └── ...
+├── main.py                    # CLI entry point
+├── log_analyzer_system.py     # Orchestration layer (for web UI)
+│
+├── modules/                   # Core modules (REPLACEABLE)
+│   ├── __init__.py           # Exports all modules
+│   ├── domain.py             # Data models (Request, Result)
+│   ├── result_handler.py     # Result parsing & saving
+│   ├── log_analyzer.py       # Log filtering & analysis
+│   ├── keyword_extractor.py  # LLM-based keyword extraction
+│   ├── context_retriever.py  # Context from JSON files
+│   └── prompt_generator.py   # Prompt generation for LLM
+│
 ├── ui/
-│   ├── app.py
+│   ├── app.py                # Flask web application
 │   └── templates/
-│       └── index.html
+│       └── index.html        # Web UI
+│
+├── assets/
+│   ├── context/              # JSON context files
+│   │   ├── components/       # Codebase components
+│   │   ├── docs/            # Documentation
+│   │   └── errors/           # Error patterns
+│   ├── uploads/              # Uploaded log files
+│   └── results/              # Analysis results
+│
 ├── requirements.txt
 └── README.md
 ```
 
-## 📊 Output Locations
+## 📝 What Each File Does
 
-- **CLI Output**: `filtered_logs.txt` (or custom `--output` path)
-- **Web UI Results**: `analysis_results/analysis_result_<timestamp>.json`
-- **Web UI Preview**: Displayed in browser after analysis
+### Entry Points
+- **`main.py`** - CLI tool for command-line log analysis
+- **`ui/app.py`** - Web UI server (Flask application)
 
-## 🧪 Testing the Installation
+### Orchestration
+- **`log_analyzer_system.py`** - Orchestrates analysis workflow, coordinates all modules
 
-### Test CLI
-```bash
-# Create a test log file
-echo "2025-10-23 10:00:00 ERROR: Test error message" > test.log
-echo "2025-10-23 10:01:00 INFO: Test info message" >> test.log
+### Core Modules (All in `modules/`)
+- **`domain.py`** - Data models (AnalysisRequest, AnalysisResult)
+- **`log_analyzer.py`** - Filters and analyzes log files
+- **`keyword_extractor.py`** - Extracts keywords from issue descriptions using LLM
+- **`context_retriever.py`** - Retrieves relevant context from JSON files
+- **`prompt_generator.py`** - Generates prompts for LLM analysis
+- **`result_handler.py`** - Parses and saves analysis results
 
-# Test analysis
-python main.py --log-file test.log --keywords "error,test" --output test_result.txt
+### Context Data
+- **`assets/context/components.json`** - Codebase components
+- **`assets/context/documentation.json`** - Documentation
+- **`assets/context/errors.json`** - Error patterns and solutions
 
-# Check results
-cat test_result.txt
+## 🔧 How to Replace Modules
+
+All modules in `modules/` can be independently replaced.
+
+### Example: Replacing Keyword Extractor
+
+1. Create new file: `modules/my_keyword_extractor.py`
+2. Implement the same interface:
+```python
+class MyKeywordExtractor:
+    def extract_keywords(self, issue_description: str) -> List[ExtractedKeyword]:
+        # Your implementation
+        pass
+    
+    def is_llm_available(self) -> bool:
+        # Your implementation
+        pass
 ```
 
-### Test Web UI
-1. Start UI: `python ui/app.py`
-2. Open: `http://localhost:5000`
-3. Upload the test.log file
-4. Enter issue description: "Application has test errors"
-5. Click "Analyze Logs"
-6. Verify results appear
-
-## 🎉 Success Indicators
-
-You'll know everything is working when:
-- ✅ CLI runs without errors: `python main.py --help`
-- ✅ Web UI loads: `http://localhost:5000` shows the upload form
-- ✅ Analysis completes: Results are generated and saved
-- ✅ LLM integration (optional): Keywords show "llm" extraction method
-
----
-
-## 🧩 Architecture Overview
-
-The system follows a modular, object-oriented architecture with clear separation of concerns:
-
-```
-log_analyzer/
-├── main.py                          # CLI entrypoint (minimal)
-├── log_analyzer_system.py           # Orchestration (for web UI)
-├── app.py                           # Alternative GUI (tkinter)
-├── modules/
-│   ├── log_analyzer.py              # Core log analysis logic
-│   ├── keyword_extractor.py         # LLM-based keyword extraction
-│   ├── context_retriever.py         # Context retrieval from JSON
-│   └── prompt_generator.py          # Prompt generation for LLMs
-├── ui/
-│   ├── app.py                       # Flask web application
-│   └── templates/
-│       └── index.html               # Web UI template
-├── assets/
-│   ├── context/                     # JSON context files
-│   ├── uploads/                     # Uploaded log files
-│   └── results/                     # Analysis results
-├── requirements.txt                 # Python dependencies
-└── README.md                        # This file
+3. Update `modules/__init__.py`:
+```python
+from .my_keyword_extractor import MyKeywordExtractor
+__all__ = [..., 'MyKeywordExtractor']
 ```
 
-## 🧪 Testing
-
-Run the system-level tests (if present):
-```bash
-python test_system.py
+4. Update imports in `log_analyzer_system.py`:
+```python
+from modules import MyKeywordExtractor
+self.keyword_extractor = MyKeywordExtractor()
 ```
 
-## 🔌 Extensibility
-- Swap in real context retrievers by implementing `ContextRetrieverInterface`.
-- Add custom formatters by extending the `LogFormatter` strategy.
-- Tweak keyword extraction by configuring `LocalLLMInterface` or changing rule patterns.
+### Module Interface Requirements
 
-## ❓ Troubleshooting
-- If no output: verify `--keywords` are provided or the issue description contains extractable terms.
-- If LLM not used: ensure your LLM server is running and reachable; otherwise the system falls back to rules.
-- Large logs: consider narrowing with `--start-date`/`--end-date` and using `--deduplicate`.
+| Module | Key Methods |
+|--------|------------|
+| **KeywordExtractor** | `extract_keywords(description) -> List[ExtractedKeyword]`, `is_llm_available() -> bool` |
+| **ContextRetriever** | `retrieve_codebase_context(keywords) -> dict`, `retrieve_documentation_context(keywords) -> dict`, `retrieve_error_context(keywords) -> dict` |
+| **PromptGenerator** | `format_context(context, type) -> str`, `generate_prompt(analysis_data) -> str` |
+| **LogAnalyzer** | `analyze(keywords, start_date, end_date) -> str` |
+| **ResultHandler** | `parse_filtered_logs(logs) -> dict`, `save_result(result, output_dir, timestamp) -> str` |
+
+## 🎯 Quick Start
+
+1. **Install dependencies**: `pip install -r requirements.txt`
+2. **Run web UI**: `python ui/app.py`
+3. **Open browser**: `http://localhost:5000`
+4. **Upload log file** and describe issue
+5. **Get AI-powered analysis**
+
+## 🤖 LLM Setup (Optional)
+
+The system uses LLM for keyword extraction. Configure it in the web UI:
+
+1. Start LM Studio or Ollama
+2. Enter LLM URL (default: `http://127.0.0.1:1234`)
+3. Enter model name
+4. Click "Analyze Logs"
+
+Without LLM, the system will prompt you to enter keywords manually.
+
+## 📊 Output
+
+- **CLI**: Saves filtered logs to `filtered_logs.txt` (or custom path)
+- **Web UI**: Saves full analysis results to `assets/results/analysis_result_<timestamp>.json`
+
+## 🔍 Troubleshooting
+
+**Import errors**: Make sure you're in the project root and have activated the virtual environment.
+
+**Flask not found**: Run `pip install -r requirements.txt`
+
+**Port 5000 in use**: Change port in `ui/app.py` or kill the process using that port.
+
+**LLM connection failed**: Ensure your LLM server (LM Studio/Ollama) is running and the URL/model are correct.
