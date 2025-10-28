@@ -15,7 +15,8 @@ from modules import (
     ContextRetriever,
     PromptGenerator, AnalysisData,
     AnalysisRequest, AnalysisResult,
-    ResultHandler
+    ResultHandler,
+    MockVectorLogFilter
 )
 
 
@@ -54,24 +55,31 @@ class LogAnalysisOrchestrator:
         all_keywords = list(set(extracted_keywords))
         print(f"Extracted keywords: {all_keywords}")
         
-        # Step 2: Analyze logs
+        # Step 2: Analyze logs (branch by filter mode)
         print("Analyzing logs...")
-        config = LogFilterConfig(
-            log_file_path=request.log_file_path,
-            max_tokens=request.max_tokens,
-            context_lines=request.context_lines,
-            deduplicate=request.deduplicate,
-            prioritize_by_severity=request.prioritize_by_severity,
-            prioritize_matches=True,
-            max_results=None
-        )
-        
-        analyzer = LogAnalyzer(config)
-        filtered_logs = analyzer.analyze(
-            keywords=all_keywords,
-            start_date=request.start_date,
-            end_date=request.end_date
-        )
+        if getattr(request, 'filter_mode', 'llm') == 'vector':
+            print("Using vector DB approach (mock)")
+            vector_filter = MockVectorLogFilter()
+            filtered_logs = vector_filter.filter(
+                issue_description=request.issue_description,
+                log_file_path=request.log_file_path,
+            )
+        else:
+            config = LogFilterConfig(
+                log_file_path=request.log_file_path,
+                max_tokens=request.max_tokens,
+                context_lines=request.context_lines,
+                deduplicate=request.deduplicate,
+                prioritize_by_severity=request.prioritize_by_severity,
+                prioritize_matches=True,
+                max_results=None
+            )
+            analyzer = LogAnalyzer(config)
+            filtered_logs = analyzer.analyze(
+                keywords=all_keywords,
+                start_date=request.start_date,
+                end_date=request.end_date
+            )
         
         # Step 3: Retrieve context
         print("Retrieving codebase, documentation and error contexts...")

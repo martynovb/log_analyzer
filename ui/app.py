@@ -49,6 +49,7 @@ def upload_log():
         end_date = request.form.get('end_date', '')
         max_tokens = int(request.form.get('max_tokens', 3500))
         context_lines = int(request.form.get('context_lines', 2))
+        filter_mode = request.form.get('filter_mode', 'llm')
         deduplicate = request.form.get('deduplicate') == 'on'
         prioritize_severity = request.form.get('prioritize_severity') == 'on'
 
@@ -58,21 +59,23 @@ def upload_log():
         llm_timeout = int(request.form.get('llm_timeout', 120))
         llm_max_tokens = int(request.form.get('llm_max_tokens', 1000))
 
-        # Validate LLM configuration
-        if not llm_url or not llm_model:
-            return jsonify({'error': 'LLM URL and Model name are required'}), 400
+        # Validate LLM configuration (only when LLM mode)
+        if filter_mode == 'llm':
+            if not llm_url or not llm_model:
+                return jsonify({'error': 'LLM URL and Model name are required'}), 400
 
         # Configure LLM
-        try:
-            custom_llm = LocalLLMInterface(
-                base_url=llm_url,
-                model=llm_model,
-                timeout=llm_timeout,
-                max_tokens=llm_max_tokens
-            )
-            orchestrator.keyword_extractor.llm_interface = custom_llm
-        except Exception as e:
-            return jsonify({'error': f'Failed to configure LLM: {str(e)}'}), 400
+        if filter_mode == 'llm':
+            try:
+                custom_llm = LocalLLMInterface(
+                    base_url=llm_url,
+                    model=llm_model,
+                    timeout=llm_timeout,
+                    max_tokens=llm_max_tokens
+                )
+                orchestrator.keyword_extractor.llm_interface = custom_llm
+            except Exception as e:
+                return jsonify({'error': f'Failed to configure LLM: {str(e)}'}), 400
 
         # Handle file upload
         if 'log_file' not in request.files:
@@ -96,6 +99,7 @@ def upload_log():
         analysis_request = AnalysisRequest(
             log_file_path=str(filepath),
             issue_description=issue_description,
+            filter_mode=filter_mode,
             start_date=start_date if start_date else None,
             end_date=end_date if end_date else None,
             max_tokens=max_tokens,

@@ -15,6 +15,7 @@ class AnalysisRequest:
     log_file_path: str
     issue_description: str
     keywords: Optional[List[str]] = None
+    filter_mode: str = "llm"  # "llm" or "vector"
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     max_tokens: int = 3500

@@ -118,6 +118,7 @@ class ResultHandler:
                 'log_file_path': result.request.log_file_path,
                 'issue_description': result.request.issue_description,
                 'keywords': result.request.keywords,
+                'filter_mode': getattr(result.request, 'filter_mode', 'llm'),
                 'start_date': result.request.start_date,
                 'end_date': result.request.end_date,
                 'max_tokens': result.request.max_tokens,
