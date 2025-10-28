@@ -40,6 +40,15 @@ python ui/app.py
 # Open browser to: http://localhost:5000
 ```
 
+**Usage:**
+1. Upload a log file
+2. Describe the issue
+3. **Select filter method:**
+   - **LLM keywords**: Extracts keywords and filters log (requires LLM setup)
+   - **Vector DB**: Semantic search (mock implementation)
+4. Configure analysis options
+5. Click "Analyze Logs"
+
 ### CLI Tool
 
 ```bash
@@ -96,8 +105,9 @@ log_analyzer/
 
 ### Core Modules (All in `modules/`)
 - **`domain.py`** - Data models (AnalysisRequest, AnalysisResult)
-- **`log_analyzer.py`** - Filters and analyzes log files
+- **`log_analyzer.py`** - Filters and analyzes log files using keyword matching
 - **`keyword_extractor.py`** - Extracts keywords from issue descriptions using LLM
+- **`vector_filter.py`** - Filters logs using vector DB semantic search (mock)
 - **`context_retriever.py`** - Retrieves relevant context from JSON files
 - **`prompt_generator.py`** - Generates prompts for LLM analysis
 - **`result_handler.py`** - Parses and saves analysis results
@@ -111,7 +121,7 @@ log_analyzer/
 
 All modules in `modules/` can be independently replaced.
 
-### Example: Replacing Keyword Extractor
+### Example 1: Replacing Keyword Extractor
 
 1. Create new file: `modules/my_keyword_extractor.py`
 2. Implement the same interface:
@@ -138,11 +148,26 @@ from modules import MyKeywordExtractor
 self.keyword_extractor = MyKeywordExtractor()
 ```
 
+### Example 2: Implementing Real Vector DB Filter
+
+Replace `MockVectorLogFilter` in `modules/vector_filter.py`:
+
+```python
+class MyVectorLogFilter(VectorLogFilter):
+    def filter(self, issue_description: str, log_file_path: str) -> str:
+        # Connect to your vector DB
+        # Embed issue description
+        # Find similar log entries
+        # Return filtered logs
+        pass
+```
+
 ### Module Interface Requirements
 
 | Module | Key Methods |
 |--------|------------|
 | **KeywordExtractor** | `extract_keywords(description) -> List[ExtractedKeyword]`, `is_llm_available() -> bool` |
+| **VectorLogFilter** | `filter(issue_description, log_file_path) -> str` |
 | **ContextRetriever** | `retrieve_codebase_context(keywords) -> dict`, `retrieve_documentation_context(keywords) -> dict`, `retrieve_error_context(keywords) -> dict` |
 | **PromptGenerator** | `format_context(context, type) -> str`, `generate_prompt(analysis_data) -> str` |
 | **LogAnalyzer** | `analyze(keywords, start_date, end_date) -> str` |
