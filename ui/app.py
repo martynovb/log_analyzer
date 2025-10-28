@@ -19,7 +19,7 @@ from datetime import datetime
 import json
 
 from log_analyzer_system import LogAnalysisOrchestrator, AnalysisRequest, AnalysisResult
-from modules.keyword_extractor import LocalLLMInterface, MockLLMInterface
+from modules import LocalLLMInterface, MockLLMInterface
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
@@ -156,51 +156,6 @@ def download_result(analysis_id):
         return jsonify({'error': f'Download failed: {str(e)}'}), 500
 
 
-@app.route('/api/test-llm', methods=['POST'])
-def test_llm():
-    """Test LLM connection with provided configuration."""
-    try:
-        data = request.get_json()
-        
-        url = data.get('url', '').strip()
-        model = data.get('model', '').strip()
-        timeout = data.get('timeout', 120)
-        max_tokens = data.get('max_tokens', 1000)
-
-        if not url or not model:
-            return jsonify({
-                'success': False,
-                'error': 'LLM URL and Model name are required'
-            })
-
-        # Create a test LLM interface
-        test_llm = LocalLLMInterface(
-            base_url=url,
-            model=model,
-            timeout=timeout,
-            max_tokens=max_tokens
-        )
-
-        # Test connection
-        if test_llm.is_available():
-            return jsonify({
-                'success': True,
-                'message': f'LLM connection successful! Model: {model}',
-                'model': model,
-                'url': url
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'Cannot connect to LLM server. Please check URL and ensure server is running.'
-            })
-
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': f'LLM test failed: {str(e)}'
-        })
-
 @app.route('/api/keywords', methods=['POST'])
 def extract_keywords():
     """API endpoint to extract keywords from issue description."""
@@ -252,7 +207,5 @@ def extract_keywords():
 if __name__ == '__main__':
     print("Starting Log Analyzer Web UI...")
     print("Open your browser and go to: http://localhost:5000")
-    print("LLM configuration available in the UI")
-    print("Auto-testing LLM connection on startup...")
     
     app.run(debug=True, host='0.0.0.0', port=5000)

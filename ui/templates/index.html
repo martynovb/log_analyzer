@@ -212,27 +212,6 @@
             display: none;
         }
         
-        .keywords-preview {
-            background: #ecf0f1;
-            padding: 15px;
-            border-radius: 8px;
-            margin-top: 15px;
-        }
-        
-        .keyword-tag {
-            display: inline-block;
-            background: #3498db;
-            color: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            margin: 2px;
-            font-size: 12px;
-        }
-        
-        .technical-keyword {
-            background: #e74c3c;
-        }
-        
         .grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -276,10 +255,6 @@
                                   required></textarea>
                     </div>
                     
-                    <div class="keywords-preview" id="keywordsPreview" style="display: none;">
-                        <h4>Extracted Keywords:</h4>
-                        <div id="keywordsList"></div>
-                    </div>
                 </div>
                 
                 <div class="form-section">
@@ -346,16 +321,11 @@
                 </div>
             </div>
 
-            <div class="form-group">
-                <button type="button" class="btn btn-secondary" id="testLLMBtn">🧪 Test LLM Connection</button>
-                <span id="llm_status" style="margin-left: 15px; padding: 8px 12px; border-radius: 4px; font-size: 14px; font-weight: bold; background: #e74c3c; color: white;">Not Connected</span>
-            </div>
         </div>
                 
-                <div class="form-group">
-                    <button type="submit" class="btn" id="analyzeBtn">🚀 Analyze Logs</button>
-                    <button type="button" class="btn btn-secondary" id="previewKeywordsBtn">🔍 Preview Keywords</button>
-                </div>
+            <div class="form-group">
+                <button type="submit" class="btn" id="analyzeBtn">🚀 Analyze Logs</button>
+            </div>
             </form>
             
             <div class="loading" id="loading">
@@ -440,117 +410,6 @@
             }
         });
         
-        document.getElementById('previewKeywordsBtn').addEventListener('click', async function() {
-            const issueDescription = document.getElementById('issue_description').value;
-            const keywordsPreview = document.getElementById('keywordsPreview');
-            const keywordsList = document.getElementById('keywordsList');
-            
-            if (!issueDescription.trim()) {
-                alert('Please enter an issue description first');
-                return;
-            }
-            
-            try {
-                const response = await fetch('/api/keywords', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        issue_description: issueDescription,
-                        llm_config: getLLMConfig()
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (data.error) {
-                    throw new Error(data.error);
-                }
-                
-                // Display keywords with enhanced format
-                let html = '';
-                if (data.keywords && data.keywords.length > 0) {
-                    html += '<div style="margin-bottom: 10px;"><strong>Extracted Keywords:</strong><br>';
-                    data.keywords.forEach(keyword => {
-                        const typeClass = keyword.type === 'technical' ? 'technical-keyword' : '';
-                        html += `<span class="keyword-tag ${typeClass}">${keyword.keyword} (${keyword.type}, ${keyword.confidence.toFixed(2)})</span>`;
-                    });
-                    html += '</div>';
-                } else if (data.general_keywords || data.technical_keywords) {
-                    // Fallback to old format
-                    html += '<div style="margin-bottom: 10px;"><strong>General Keywords:</strong><br>';
-                    (data.general_keywords || []).forEach(keyword => {
-                        html += `<span class="keyword-tag">${keyword}</span>`;
-                    });
-                    html += '</div>';
-                    
-                    html += '<div><strong>Technical Keywords:</strong><br>';
-                    (data.technical_keywords || []).forEach(keyword => {
-                        html += `<span class="keyword-tag technical-keyword">${keyword}</span>`;
-                    });
-                    html += '</div>';
-                }
-                
-                keywordsList.innerHTML = html;
-                keywordsPreview.style.display = 'block';
-                
-            } catch (error) {
-                alert(`Error extracting keywords: ${error.message}`);
-            }
-        });
-        
-        document.getElementById('testLLMBtn').addEventListener('click', async function() {
-            const testBtn = document.getElementById('testLLMBtn');
-            const statusElement = document.getElementById('llm_status');
-            
-            const url = document.getElementById('llm_url').value.trim();
-            const model = document.getElementById('llm_model').value.trim();
-            const timeout = parseInt(document.getElementById('llm_timeout').value);
-            const maxTokens = parseInt(document.getElementById('llm_max_tokens').value);
-
-            if (!url || !model) {
-                alert('Please provide both LLM URL and Model name');
-                return;
-            }
-
-            testBtn.disabled = true;
-            statusElement.textContent = 'Testing...';
-            statusElement.style.background = '#f39c12';
-
-            try {
-                const response = await fetch('/api/test-llm', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        url: url,
-                        model: model,
-                        timeout: timeout,
-                        max_tokens: maxTokens
-                    })
-                });
-
-                const result = await response.json();
-
-                if (response.ok && result.success) {
-                    statusElement.textContent = 'Connected';
-                    statusElement.style.background = '#27ae60';
-                    showSuccess(`LLM connection successful! Model: ${result.model}`);
-                } else {
-                    statusElement.textContent = 'Connection Failed';
-                    statusElement.style.background = '#e74c3c';
-                    showError(result.error || 'LLM connection failed');
-                }
-            } catch (error) {
-                statusElement.textContent = 'Connection Failed';
-                statusElement.style.background = '#e74c3c';
-                showError('Failed to test LLM connection: ' + error.message);
-            } finally {
-                testBtn.disabled = false;
-            }
-        });
         
         function getLLMConfig() {
             return {

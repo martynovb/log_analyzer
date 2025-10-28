@@ -13,9 +13,10 @@ from pathlib import Path
 from datetime import datetime
 
 from log_analyzer_system import (
-    AnalysisRequest, AnalysisResult, KeywordExtractor, 
-    MockContextRetriever, PromptCreator, LogAnalysisOrchestrator
+    AnalysisRequest, AnalysisResult, LogAnalysisOrchestrator
 )
+from modules.keyword_extractor import KeywordExtractor
+from modules.prompt_generator import PromptGenerator, AnalysisData
 
 
 class TestKeywordExtractor(unittest.TestCase):
@@ -61,93 +62,47 @@ class TestKeywordExtractor(unittest.TestCase):
         self.assertEqual(technical_keywords, [])
 
 
-class TestMockContextRetriever(unittest.TestCase):
-    """Test mock context retriever functionality."""
+# TestMockContextRetriever removed - now using real ContextRetriever from modules
+
+class TestPromptGenerator(unittest.TestCase):
+    """Test prompt generation functionality."""
     
     def setUp(self):
-        self.retriever = MockContextRetriever()
+        self.generator = PromptGenerator()
     
-    def test_retrieve_codebase_context(self):
-        """Test codebase context retrieval."""
-        keywords = ["error", "exception", "timeout"]
-        context = self.retriever.retrieve_codebase_context(keywords)
-        
-        self.assertIn("relevant_files", context)
-        self.assertIn("total_files", context)
-        self.assertIn("search_keywords", context)
-        self.assertIn("retrieval_method", context)
-        self.assertGreater(context["total_files"], 0)
-    
-    def test_retrieve_documentation_context(self):
-        """Test documentation context retrieval."""
-        keywords = ["database", "network", "memory"]
-        context = self.retriever.retrieve_documentation_context(keywords)
-        
-        self.assertIn("relevant_documentation", context)
-        self.assertIn("total_docs", context)
-        self.assertIn("search_keywords", context)
-        self.assertIn("retrieval_method", context)
-        self.assertGreater(context["total_docs"], 0)
-    
-    def test_empty_keywords(self):
-        """Test handling of empty keywords."""
-        codebase_context = self.retriever.retrieve_codebase_context([])
-        docs_context = self.retriever.retrieve_documentation_context([])
-        
-        self.assertEqual(codebase_context["total_files"], 0)
-        self.assertEqual(docs_context["total_docs"], 0)
-
-
-class TestPromptCreator(unittest.TestCase):
-    """Test prompt creation functionality."""
-    
-    def setUp(self):
-        self.creator = PromptCreator()
-    
-    def test_create_prompt(self):
-        """Test prompt creation."""
-        issue_description = "Application crashes with memory errors"
-        keywords = ["crash", "memory", "error"]
-        filtered_logs = "Sample log entries..."
-        codebase_context = {
-            "relevant_files": ["ErrorHandler.java"],
-            "total_files": 1,
-            "search_keywords": ["error"],
-            "retrieval_method": "mock_search"
-        }
-        documentation_context = {
-            "relevant_documentation": ["Error Handling Guide"],
-            "total_docs": 1,
-            "search_keywords": ["error"],
-            "retrieval_method": "mock_search"
-        }
-        
-        prompt = self.creator.create_prompt(
-            issue_description, keywords, filtered_logs,
-            codebase_context, documentation_context
+    def test_generate_prompt(self):
+        """Test prompt generation."""
+        analysis_data = AnalysisData(
+            issue_description="Application crashes with memory errors",
+            extracted_keywords=["crash", "memory", "error"],
+            filtered_logs="Sample log entries...",
+            context_description="Error Handler module",
+            log_file_path="app.log"
         )
         
-        self.assertIn(issue_description, prompt)
+        prompt = self.generator.generate_prompt(analysis_data)
+        
+        self.assertIn("Application crashes with memory errors", prompt)
         self.assertIn("crash, memory, error", prompt)
         self.assertIn("Sample log entries...", prompt)
-        self.assertIn("ErrorHandler.java", prompt)
-        self.assertIn("Error Handling Guide", prompt)
+        self.assertIn("Error Handler module", prompt)
+        self.assertIn("app.log", prompt)
     
-    def test_format_context(self):
-        """Test context formatting."""
-        context = {
-            "relevant_files": ["file1.java", "file2.py"],
-            "total_files": 2,
-            "search_keywords": ["error"],
-            "retrieval_method": "mock_search"
-        }
+    def test_get_prompt_statistics(self):
+        """Test prompt statistics."""
+        analysis_data = AnalysisData(
+            issue_description="Test issue",
+            extracted_keywords=["test", "issue"],
+            filtered_logs="Log content",
+            context_description="Context",
+            log_file_path="test.log"
+        )
         
-        formatted = self.creator._format_context(context, "Codebase")
+        stats = self.generator.get_prompt_statistics(analysis_data)
         
-        self.assertIn("Codebase Information", formatted)
-        self.assertIn("file1.java", formatted)
-        self.assertIn("file2.py", formatted)
-        self.assertIn("mock_search", formatted)
+        self.assertIn("total_characters", stats)
+        self.assertIn("keywords_count", stats)
+        self.assertEqual(stats["keywords_count"], 2)
 
 
 class TestAnalysisRequest(unittest.TestCase):
@@ -318,8 +273,7 @@ def run_tests():
     # Add test cases
     test_classes = [
         TestKeywordExtractor,
-        TestMockContextRetriever,
-        TestPromptCreator,
+        TestPromptGenerator,
         TestAnalysisRequest,
         TestLogAnalysisOrchestrator,
         TestIntegration

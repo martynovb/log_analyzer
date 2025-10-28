@@ -5,10 +5,11 @@ This module contains the core log analysis functionality that was previously
 in main.py, now organized into a proper module structure.
 """
 
-from .log_analyzer import LogAnalyzer, LogFilterConfig
-from .components import (
+from .log_analyzer import (
+    LogAnalyzer, 
+    LogFilterConfig,
     LogTimestampParser,
-    LogDateFilter, 
+    LogDateFilter,
     LogKeywordFilter,
     LogDeduplicator,
     LogPrioritizer,
@@ -16,17 +17,29 @@ from .components import (
     TokenLimitedFormatter,
     LogFileReader
 )
+from .keyword_extractor import KeywordExtractor, KeywordType, ExtractedKeyword, LocalLLMInterface, MockLLMInterface, LLMInterface
+from .context_retriever import ContextRetriever
+from .prompt_generator import PromptGenerator, AnalysisData
 
 __all__ = [
     'LogAnalyzer',
     'LogFilterConfig',
     'LogTimestampParser',
     'LogDateFilter',
-    'LogKeywordFilter', 
+    'LogKeywordFilter',
     'LogDeduplicator',
     'LogPrioritizer',
     'LogFormatter',
     'TokenLimitedFormatter',
-    'LogFileReader'
+    'LogFileReader',
+    'KeywordExtractor',
+    'KeywordType',
+    'ExtractedKeyword',
+    'LocalLLMInterface',
+    'MockLLMInterface',
+    'LLMInterface',
+    'ContextRetriever',
+    'PromptGenerator',
+    'AnalysisData'
 ]
 

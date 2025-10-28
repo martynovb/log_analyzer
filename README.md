@@ -256,17 +256,21 @@ The system follows a modular, object-oriented architecture with clear separation
 ```
 log_analyzer/
 ├── main.py                          # CLI entrypoint (minimal)
-├── log_analyzer_system.py           # Modular orchestration (keyword extraction, context, prompts)
+├── log_analyzer_system.py           # Orchestration (for web UI)
+├── app.py                           # Alternative GUI (tkinter)
 ├── modules/
-│   ├── keyword_extractor.py         # LLM + heuristic keyword extraction
-│   ├── context_retriever.py         # Context retriever interfaces/impls
-│   ├── prompt_generator.py          # Prompt creation (if used separately)
-│   └── components.py                # Other shared components
+│   ├── log_analyzer.py              # Core log analysis logic
+│   ├── keyword_extractor.py         # LLM-based keyword extraction
+│   ├── context_retriever.py         # Context retrieval from JSON
+│   └── prompt_generator.py          # Prompt generation for LLMs
 ├── ui/
 │   ├── app.py                       # Flask web application
 │   └── templates/
 │       └── index.html               # Web UI template
-├── analysis_results/                # Saved analysis outputs (UI)
+├── assets/
+│   ├── context/                     # JSON context files
+│   ├── uploads/                     # Uploaded log files
+│   └── results/                     # Analysis results
 ├── requirements.txt                 # Python dependencies
 └── README.md                        # This file
 ```

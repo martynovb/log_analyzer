@@ -1,7 +1,7 @@
 import argparse
 from typing import List, Optional
 
-from modules.log_analyzer import LogAnalyzer, LogFilterConfig
+from modules import LogAnalyzer, LogFilterConfig
 
 
 def parse_args() -> argparse.Namespace:
