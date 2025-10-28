@@ -59,13 +59,12 @@ def upload_log():
         llm_timeout = int(request.form.get('llm_timeout', 120))
         llm_max_tokens = int(request.form.get('llm_max_tokens', 1000))
 
-        # Validate LLM configuration (only when LLM mode)
+        # Configure LLM
         if filter_mode == 'llm':
+            # Validate LLM configuration (only when LLM mode)
             if not llm_url or not llm_model:
                 return jsonify({'error': 'LLM URL and Model name are required'}), 400
 
-        # Configure LLM
-        if filter_mode == 'llm':
             try:
                 custom_llm = LocalLLMInterface(
                     base_url=llm_url,
