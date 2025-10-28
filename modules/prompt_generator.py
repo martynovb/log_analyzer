@@ -23,6 +23,48 @@ class AnalysisData:
 class PromptGenerator:
     """Generates simple, focused prompts for LLM log analysis."""
     
+    def format_context(self, context: dict, context_type: str) -> str:
+        """Format context information for the prompt."""
+        if not context:
+            return f"No {context_type.lower()} context available."
+        
+        formatted = f"### {context_type} Information\n"
+        
+        # Handle codebase/files context
+        if 'relevant_files' in context:
+            formatted += f"**Relevant Files ({context.get('total_files', 0)}):**\n"
+            for file in context['relevant_files']:
+                formatted += f"- {file}\n"
+        
+        # Handle documentation context
+        if 'relevant_documentation' in context:
+            formatted += f"**Relevant Documentation ({context.get('total_docs', 0)}):**\n"
+            for doc in context['relevant_documentation']:
+                formatted += f"- {doc}\n"
+        
+        # Handle detailed items if available (for JSON-based context)
+        if 'relevant_items' in context:
+            items = context['relevant_items']
+            if context_type == "Codebase":
+                formatted += f"**Components ({len(items)}):**\n"
+            for item in items:
+                if isinstance(item, dict):
+                    item_title = item.get('title', item.get('id', 'Unknown'))
+                    item_content = item.get('content', '')
+                    if item_content:
+                        # Truncate long content
+                        if len(item_content) > 500:
+                            item_content = item_content[:500] + "..."
+                        formatted += f"\n**{item_title}:**\n{item_content}\n"
+                    else:
+                        formatted += f"- {item_title}\n"
+        
+        formatted += f"\n**Search Method:** {context.get('retrieval_method', 'Unknown')}\n"
+        if 'search_keywords' in context:
+            formatted += f"**Search Keywords:** {', '.join(context.get('search_keywords', []))}\n"
+        
+        return formatted
+    
     def generate_prompt(self, analysis_data: AnalysisData) -> str:
         """
         Generate a simple, focused prompt for log analysis.

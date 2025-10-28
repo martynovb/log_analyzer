@@ -18,8 +18,8 @@ import tempfile
 from datetime import datetime
 import json
 
-from log_analyzer_system import LogAnalysisOrchestrator, AnalysisRequest, AnalysisResult
-from modules import LocalLLMInterface, MockLLMInterface
+from log_analyzer_system import LogAnalysisOrchestrator
+from modules import LocalLLMInterface, MockLLMInterface, AnalysisRequest, AnalysisResult
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size

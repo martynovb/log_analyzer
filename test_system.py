@@ -12,11 +12,11 @@ import os
 from pathlib import Path
 from datetime import datetime
 
-from log_analyzer_system import (
-    AnalysisRequest, AnalysisResult, LogAnalysisOrchestrator
+from log_analyzer_system import LogAnalysisOrchestrator
+from modules import (
+    AnalysisRequest, AnalysisResult, KeywordExtractor,
+    PromptGenerator, AnalysisData
 )
-from modules.keyword_extractor import KeywordExtractor
-from modules.prompt_generator import PromptGenerator, AnalysisData
 
 
 class TestKeywordExtractor(unittest.TestCase):

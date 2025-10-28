@@ -20,6 +20,8 @@ from .log_analyzer import (
 from .keyword_extractor import KeywordExtractor, KeywordType, ExtractedKeyword, LocalLLMInterface, MockLLMInterface, LLMInterface
 from .context_retriever import ContextRetriever
 from .prompt_generator import PromptGenerator, AnalysisData
+from .domain import AnalysisRequest, AnalysisResult
+from .result_handler import ResultHandler
 
 __all__ = [
     'LogAnalyzer',
@@ -40,6 +42,9 @@ __all__ = [
     'LLMInterface',
     'ContextRetriever',
     'PromptGenerator',
-    'AnalysisData'
+    'AnalysisData',
+    'AnalysisRequest',
+    'AnalysisResult',
+    'ResultHandler'
 ]
 
