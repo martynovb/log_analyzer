@@ -42,10 +42,38 @@ class LogAnalysisOrchestrator:
         """
         start_time = datetime.now()
         
-        # Step 1: Extract keywords from issue description
-        print("Extracting keywords from issue description...")
-        extracted_keywords_objects = self.keyword_extractor.extract_keywords(request.issue_description)
-        extracted_keywords = [kw.keyword for kw in extracted_keywords_objects]
+        def format_time(seconds: float) -> str:
+            """Format time in a readable format."""
+            if seconds < 1:
+                return f"{int(seconds * 1000)}ms"
+            elif seconds < 60:
+                return f"{seconds:.1f} seconds"
+            else:
+                minutes = int(seconds // 60)
+                secs = seconds % 60
+                if secs < 1:
+                    return f"{minutes} minute{'s' if minutes != 1 else ''}"
+                else:
+                    return f"{minutes} minute{'s' if minutes != 1 else ''} {secs:.1f} seconds"
+        
+        def print_step_time(step_name: str, step_start: datetime, step_end: datetime):
+            """Print time taken for a step."""
+            elapsed = (step_end - step_start).total_seconds()
+            print(f"  ✓ {step_name} completed in {format_time(elapsed)}")
+        
+        # Step 1: Extract keywords from issue description (skip LLM if vector mode)
+        filter_mode = getattr(request, 'filter_mode', 'llm')
+        
+        step1_start = datetime.now()
+        if filter_mode == 'vector':
+            # For vector DB mode, skip LLM keyword extraction
+            print("Step 1: Skipping keyword extraction (vector DB mode - keywords not needed for filtering)...")
+            extracted_keywords = []
+        else:
+            # For LLM/keyword mode, use LLM-based keyword extraction
+            print("Step 1: Extracting keywords from issue description using LLM...")
+            extracted_keywords_objects = self.keyword_extractor.extract_keywords(request.issue_description)
+            extracted_keywords = [kw.keyword for kw in extracted_keywords_objects]
         
         # Add any manually provided keywords
         if request.keywords:
@@ -53,12 +81,15 @@ class LogAnalysisOrchestrator:
         
         # Remove duplicates
         all_keywords = list(set(extracted_keywords))
-        print(f"Extracted keywords: {all_keywords}")
+        step1_end = datetime.now()
+        if filter_mode != 'vector':
+            print(f"  Extracted keywords: {all_keywords}")
+        print_step_time("Step 1: Keyword extraction", step1_start, step1_end)
         
         # Step 2: Analyze logs (branch by filter mode)
-        print("Analyzing logs...")
-        if getattr(request, 'filter_mode', 'llm') == 'vector':
-            print("Using vector DB approach")
+        step2_start = datetime.now()
+        print(f"Step 2: Analyzing logs using {'Vector DB' if filter_mode == 'vector' else 'keyword-based'} approach...")
+        if filter_mode == 'vector':
             vector_filter = VectorLogFilterImpl()
             filtered_logs = vector_filter.filter(
                 issue_description=request.issue_description,
@@ -80,15 +111,21 @@ class LogAnalysisOrchestrator:
                 start_date=request.start_date,
                 end_date=request.end_date
             )
+        step2_end = datetime.now()
+        print_step_time("Step 2: Log filtering", step2_start, step2_end)
         
         # Step 3: Retrieve context
-        print("Retrieving codebase, documentation and error contexts...")
+        step3_start = datetime.now()
+        print("Step 3: Retrieving codebase, documentation and error contexts...")
         codebase_context = self.context_retriever.retrieve_codebase_context(all_keywords)
         documentation_context = self.context_retriever.retrieve_documentation_context(all_keywords)
         error_context = self.context_retriever.retrieve_error_context(all_keywords)
+        step3_end = datetime.now()
+        print_step_time("Step 3: Context retrieval", step3_start, step3_end)
         
         # Step 4: Format context and create comprehensive prompt
-        print("Creating analysis prompt...")
+        step4_start = datetime.now()
+        print("Step 4: Creating analysis prompt...")
         
         # Format context using PromptGenerator
         codebase_text = self.prompt_generator.format_context(codebase_context, "Codebase")
@@ -109,20 +146,30 @@ class LogAnalysisOrchestrator:
         
         # Generate prompt using PromptGenerator
         generated_prompt = self.prompt_generator.generate_prompt(analysis_data)
+        step4_end = datetime.now()
+        print_step_time("Step 4: Prompt generation", step4_start, step4_end)
         
         # Step 5: Get LLM analysis
-        print("Getting LLM analysis...")
+        step5_start = datetime.now()
+        print("Step 5: Getting LLM analysis...")
         llm_analysis = None
         try:
             llm_analysis = self.keyword_extractor.llm_interface.analyze_logs(generated_prompt)
-            print("LLM analysis completed successfully")
+            step5_end = datetime.now()
+            print_step_time("Step 5: LLM analysis", step5_start, step5_end)
         except Exception as e:
-            print(f"LLM analysis failed: {e}")
+            step5_end = datetime.now()
+            print(f"  ✗ LLM analysis failed: {e}")
+            print_step_time("Step 5: LLM analysis (failed)", step5_start, step5_end)
             llm_analysis = f"LLM analysis failed: {str(e)}"
         
-        # Calculate processing time
+        # Calculate total processing time
         end_time = datetime.now()
         processing_time_ms = int((end_time - start_time).total_seconds() * 1000)
+        total_seconds = (end_time - start_time).total_seconds()
+        print(f"\n{'='*60}")
+        print(f"Total processing time: {format_time(total_seconds)}")
+        print(f"{'='*60}\n")
         
         # Create result
         result = AnalysisResult(
@@ -140,7 +187,6 @@ class LogAnalysisOrchestrator:
             processing_time_ms=processing_time_ms
         )
         
-        print(f"Analysis completed in {processing_time_ms}ms")
         return result
     
     def save_result(self, result: AnalysisResult, output_dir: str = "analysis_results", custom_timestamp: str = None) -> str:

@@ -71,6 +71,21 @@
             color: #34495e;
         }
         
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+            background: white;
+        }
+        
+        select:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
         input[type="file"], 
         input[type="text"], 
         input[type="date"], 
@@ -262,8 +277,8 @@
                     <div class="form-group">
                         <label for="filter_mode">Filter Method:</label>
                         <select id="filter_mode" name="filter_mode">
-                            <option value="llm" selected>LLM keywords (current)</option>
-                            <option value="vector">Vector DB (mock)</option>
+                            <option value="llm" selected>LLM keywords</option>
+                            <option value="vector">Vector DB</option>
                         </select>
                     </div>
                     <div class="grid">
@@ -288,7 +303,7 @@
                         </div>
                     </div>
                     
-                    <div class="form-group">
+                    <div class="form-group" id="checkbox_options_section">
                         <div class="checkbox-group">
                             <div class="checkbox-item">
                                 <input type="checkbox" id="deduplicate" name="deduplicate" checked>
@@ -306,15 +321,25 @@
             <h2>🤖 LLM Configuration</h2>
             <p style="margin-bottom: 20px; color: #7f8c8d;">Configure your local LLM for keyword extraction. Both URL and Model name are required.</p>
 
-            <div class="grid">
-                <div class="form-group">
-                    <label for="llm_url">LLM Server URL: <span style="color: red;">*</span></label>
-                    <input type="text" id="llm_url" name="llm_url" placeholder="http://127.0.0.1:1234" required>
+            <div class="form-group">
+                <label for="llm_url">LLM Server URL: <span style="color: red;">*</span></label>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="text" id="llm_url" name="llm_url" placeholder="http://127.0.0.1:1234" required style="flex: 1;">
+                    <button type="button" id="fetchModelsBtn" class="btn-secondary" style="padding: 12px 20px; margin: 0;">🔄 Fetch Models</button>
                 </div>
-                <div class="form-group">
-                    <label for="llm_model">Model Name: <span style="color: red;">*</span></label>
-                    <input type="text" id="llm_model" name="llm_model" placeholder="model name" required>
-                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="model_dropdown">Select Available Model:</label>
+                <select id="model_dropdown" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px;">
+                    <option value="">-- Select a model or enter manually --</option>
+                </select>
+                <div id="modelStatus" style="margin-top: 8px; font-size: 14px; color: #7f8c8d;"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="llm_model">Model Name: <span style="color: red;">*</span></label>
+                <input type="text" id="llm_model" name="llm_model" placeholder="model name" required>
             </div>
 
             <div class="grid">
@@ -386,13 +411,23 @@
                     
                     // Display results
                     const resultContent = document.getElementById('resultContent');
-                    resultContent.innerHTML = `
+                    const isVectorMode = data.filter_mode === 'vector';
+                    
+                    // Build result HTML
+                    let resultHtml = `
                         <div class="result-item">
-                            <strong>Processing Time:</strong> ${data.processing_time_ms}ms
-                        </div>
+                            <strong>Processing Time:</strong> ${data.processing_time_formatted || (data.processing_time_ms + 'ms')}
+                        </div>`;
+                    
+                    // Only show keywords if not vector mode
+                    if (!isVectorMode && data.extracted_keywords && data.extracted_keywords.length > 0) {
+                        resultHtml += `
                         <div class="result-item">
                             <strong>Extracted Keywords:</strong> ${data.extracted_keywords.join(', ')}
-                        </div>
+                        </div>`;
+                    }
+                    
+                    resultHtml += `
                         <div class="result-item">
                             <strong>Codebase Files Found:</strong> ${data.codebase_files}
                         </div>
@@ -407,6 +442,8 @@
                             <button onclick="downloadResults('${data.analysis_id}')" class="btn">📥 Download Full Results</button>
                         </div>
                     `;
+                    
+                    resultContent.innerHTML = resultHtml;
                     result.style.display = 'block';
                 } else {
                     throw new Error(data.error || 'Analysis failed');
@@ -420,11 +457,25 @@
             }
         });
         
-        // Toggle LLM sections based on filter mode
+        // Toggle LLM sections and options based on filter mode
         document.getElementById('filter_mode').addEventListener('change', function() {
             const isVector = this.value === 'vector';
-            document.getElementById('llm_config_section').style.display = isVector ? 'none' : 'grid';
+            const llmConfigSection = document.getElementById('llm_config_section');
+            const checkboxSection = document.getElementById('checkbox_options_section');
+            
+            // Hide/show LLM config section (Max Tokens, Context Lines)
+            if (llmConfigSection) {
+                llmConfigSection.style.display = isVector ? 'none' : 'grid';
+            }
+            
+            // Hide/show checkbox options (Remove Duplicates, Prioritize by Severity)
+            if (checkboxSection) {
+                checkboxSection.style.display = isVector ? 'none' : 'block';
+            }
         });
+        
+        // Trigger on page load to set initial state
+        document.getElementById('filter_mode').dispatchEvent(new Event('change'));
         
         
         function getLLMConfig() {
@@ -483,6 +534,94 @@
                 showError(`Download failed: ${error.message}`);
             }
         }
+        
+        // Fetch available models from LM Studio
+        let availableModels = [];
+        
+        document.getElementById('fetchModelsBtn').addEventListener('click', async function() {
+            const urlInput = document.getElementById('llm_url');
+            const url = urlInput.value.trim();
+            const modelDropdown = document.getElementById('model_dropdown');
+            const modelStatus = document.getElementById('modelStatus');
+            const fetchBtn = this;
+            
+            if (!url) {
+                showError('Please enter an LLM Server URL first');
+                return;
+            }
+            
+            // Show loading state
+            fetchBtn.disabled = true;
+            fetchBtn.textContent = '⏳ Fetching...';
+            modelStatus.textContent = 'Fetching available models...';
+            modelStatus.style.color = '#3498db';
+            
+            // Clear existing options except the first one
+            modelDropdown.innerHTML = '<option value="">-- Select a model or enter manually --</option>';
+            
+            try {
+                const response = await fetch(`/api/models?url=${encodeURIComponent(url)}`);
+                const data = await response.json();
+                
+                if (data.success && data.models && data.models.length > 0) {
+                    availableModels = data.models;
+                    
+                    // Populate dropdown
+                    data.models.forEach(model => {
+                        const option = document.createElement('option');
+                        option.value = model.id;
+                        option.textContent = `${model.name} (${model.id})`;
+                        modelDropdown.appendChild(option);
+                    });
+                    
+                    modelStatus.textContent = `✓ Found ${data.models.length} model(s)`;
+                    modelStatus.style.color = '#27ae60';
+                } else {
+                    modelStatus.textContent = data.error || 'No models found or failed to connect';
+                    modelStatus.style.color = '#e74c3c';
+                }
+            } catch (error) {
+                modelStatus.textContent = `Error: ${error.message}`;
+                modelStatus.style.color = '#e74c3c';
+            } finally {
+                fetchBtn.disabled = false;
+                fetchBtn.textContent = '🔄 Fetch Models';
+            }
+        });
+        
+        // Auto-fill URL and model name when a model is selected
+        document.getElementById('model_dropdown').addEventListener('change', function() {
+            const selectedModelId = this.value;
+            const urlInput = document.getElementById('llm_url');
+            const modelInput = document.getElementById('llm_model');
+            
+            if (selectedModelId) {
+                // Find the selected model
+                const selectedModel = availableModels.find(m => m.id === selectedModelId);
+                
+                if (selectedModel) {
+                    // Auto-fill model name
+                    modelInput.value = selectedModel.id;
+                    
+                    // If URL is empty, try to use the default
+                    if (!urlInput.value.trim()) {
+                        urlInput.value = 'http://127.0.0.1:1234';
+                    }
+                    
+                    const modelStatus = document.getElementById('modelStatus');
+                    modelStatus.textContent = `✓ Selected: ${selectedModel.name}`;
+                    modelStatus.style.color = '#27ae60';
+                }
+            }
+        });
+        
+        // Auto-fetch models when URL changes and Enter is pressed
+        document.getElementById('llm_url').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                document.getElementById('fetchModelsBtn').click();
+            }
+        });
         
         // No auto-test since we need user configuration
     </script>

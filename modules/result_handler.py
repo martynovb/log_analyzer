@@ -19,61 +19,85 @@ class ResultHandler:
         """
         Parse filtered logs string into structured format with summary and entries array.
         
+        Handles two formats:
+        1. Formatted format (keyword-based) with [Line X] markers and summary
+        2. Plain format (vector DB) with just log lines
+        
         Args:
             filtered_logs: String containing formatted logs
             
         Returns:
             Dictionary with 'summary' and 'entries' array
         """
-        # Extract summary section (everything before the separator line)
+        if not filtered_logs or not filtered_logs.strip():
+            return {
+                'summary': '',
+                'entries': [],
+                'total_entries': 0
+            }
+        
+        # Extract summary section (everything before the separator line) - only for formatted logs
         summary_match = re.search(r'(=== LOG ANALYSIS SUMMARY ===.*?Legend:.*?)', filtered_logs, re.DOTALL)
         summary_text = summary_match.group(1) if summary_match else ""
         
-        # Extract entries (skip summary and separator lines)
-        # Look for lines that start with [Line or are context lines
+        # Check if this is formatted output (keyword-based) or plain output (vector DB)
+        has_line_markers = '[Line' in filtered_logs
+        has_summary = bool(summary_match)
+        
         log_lines = filtered_logs.split('\n')
         entries = []
         
-        # Find where actual log entries start (after separator or ===)
-        start_processing = False
-        
-        for line in log_lines:
-            line = line.strip()
-            if not line or line.startswith('===') or 'truncated' in line.lower():
-                if 'truncated' in line.lower():
-                    entries.append({
-                        'type': 'truncation_notice',
-                        'content': line
-                    })
-                continue
+        if has_line_markers or has_summary:
+            # Format 1: Formatted output with [Line X] markers (keyword-based)
+            start_processing = False
             
-            # Start processing after we see a [Line marker
-            if '[Line' in line or start_processing:
-                start_processing = True
+            for line in log_lines:
+                line = line.strip()
+                if not line or (line.startswith('===') and 'LOG ANALYSIS' in line) or 'truncated' in line.lower():
+                    if 'truncated' in line.lower():
+                        entries.append({
+                            'type': 'truncation_notice',
+                            'content': line
+                        })
+                    continue
                 
-                # Parse log entry
-                if '[Line' in line:
-                    # Extract line number
-                    line_num_match = re.search(r'\[Line (\d+)\]', line)
-                    line_number = int(line_num_match.group(1)) if line_num_match else None
+                # Start processing after we see a [Line marker
+                if '[Line' in line or start_processing:
+                    start_processing = True
                     
-                    # Extract if it's a direct match (>>>) or context
-                    is_direct_match = '>>>' in line
-                    
-                    # Extract the actual log content
-                    if is_direct_match:
-                        log_content = re.sub(r'\[Line \d+\]\s*>>>\s*', '', line).strip()
-                    else:
-                        log_content = re.sub(r'\[Line \d+\]\s+', '', line).strip()
-                    
+                    # Parse log entry
+                    if '[Line' in line:
+                        # Extract line number
+                        line_num_match = re.search(r'\[Line (\d+)\]', line)
+                        line_number = int(line_num_match.group(1)) if line_num_match else None
+                        
+                        # Extract if it's a direct match (>>>) or context
+                        is_direct_match = '>>>' in line
+                        
+                        # Extract the actual log content
+                        if is_direct_match:
+                            log_content = re.sub(r'\[Line \d+\]\s*>>>\s*', '', line).strip()
+                        else:
+                            log_content = re.sub(r'\[Line \d+\]\s+', '', line).strip()
+                        
+                        entries.append({
+                            'line_number': line_number,
+                            'is_direct_match': is_direct_match,
+                            'content': log_content
+                        })
+                    elif line:  # Context lines without [Line] marker
+                        entries.append({
+                            'type': 'continuation',
+                            'content': line
+                        })
+        else:
+            # Format 2: Plain output (vector DB) - just log lines
+            for line_num, line in enumerate(log_lines, start=1):
+                line = line.strip()
+                if line:  # Only process non-empty lines
                     entries.append({
-                        'line_number': line_number,
-                        'is_direct_match': is_direct_match,
-                        'content': log_content
-                    })
-                elif line:  # Context lines without [Line] marker
-                    entries.append({
-                        'type': 'continuation',
+                        'line_number': line_num,
+                        'is_direct_match': True,  # All vector DB results are considered matches
                         'content': line
                     })
         

@@ -114,12 +114,34 @@ def upload_log():
         project_root = Path(__file__).parent.parent
         output_file = orchestrator.save_result(result, str(project_root / 'assets' / 'results'), timestamp)
         
+        # Format processing time for readable display
+        processing_time_ms = result.processing_time_ms
+        processing_seconds = processing_time_ms / 1000.0
+        
+        def format_time(seconds):
+            """Format time in a readable format."""
+            if seconds < 1:
+                return f"{int(seconds * 1000)}ms"
+            elif seconds < 60:
+                return f"{seconds:.1f} seconds"
+            else:
+                minutes = int(seconds // 60)
+                secs = seconds % 60
+                if secs < 1:
+                    return f"{minutes} minute{'s' if minutes != 1 else ''}"
+                else:
+                    return f"{minutes} minute{'s' if minutes != 1 else ''} {secs:.1f} seconds"
+        
+        processing_time_formatted = format_time(processing_seconds)
+        
         # Return analysis result
         return jsonify({
             'success': True,
             'analysis_id': timestamp,
             'extracted_keywords': result.extracted_keywords,
-            'processing_time_ms': result.processing_time_ms,
+            'processing_time_ms': processing_time_ms,
+            'processing_time_formatted': processing_time_formatted,
+            'filter_mode': filter_mode,
             'codebase_files': result.context_info['codebase']['total_files'],
             'documentation_items': result.context_info['documentation']['total_docs'],
             'result_file': output_file,
@@ -157,6 +179,54 @@ def download_result(analysis_id):
     except Exception as e:
         print(f"Download error: {str(e)}")
         return jsonify({'error': f'Download failed: {str(e)}'}), 500
+
+
+@app.route('/api/models', methods=['GET'])
+def get_models():
+    """API endpoint to fetch available LLM models from LM Studio."""
+    try:
+        llm_url = request.args.get('url', 'http://127.0.0.1:1234').strip()
+        if not llm_url:
+            return jsonify({'error': 'URL parameter is required'}), 400
+        
+        # Ensure URL doesn't end with a slash
+        llm_url = llm_url.rstrip('/')
+        
+        # Fetch models from LM Studio
+        import requests
+        models_url = f"{llm_url}/v1/models"
+        
+        try:
+            response = requests.get(models_url, timeout=5)
+            response.raise_for_status()
+            data = response.json()
+            
+            # Extract model IDs from the response
+            models = []
+            if 'data' in data and isinstance(data['data'], list):
+                for model in data['data']:
+                    if 'id' in model:
+                        models.append({
+                            'id': model['id'],
+                            'name': model.get('id', '').split('/')[-1],  # Extract model name
+                            'object': model.get('object', 'model'),
+                            'owned_by': model.get('owned_by', '')
+                        })
+            
+            return jsonify({
+                'success': True,
+                'models': models,
+                'url': llm_url
+            })
+        except requests.exceptions.RequestException as e:
+            return jsonify({
+                'success': False,
+                'error': f'Failed to connect to LLM server: {str(e)}',
+                'models': []
+            }), 200  # Return 200 but with error message
+        
+    except Exception as e:
+        return jsonify({'error': f'Failed to fetch models: {str(e)}'}), 500
 
 
 @app.route('/api/keywords', methods=['POST'])
