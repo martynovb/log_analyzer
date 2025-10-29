@@ -59,22 +59,20 @@ def upload_log():
         llm_timeout = int(request.form.get('llm_timeout', 120))
         llm_max_tokens = int(request.form.get('llm_max_tokens', 1000))
 
-        # Configure LLM
-        if filter_mode == 'llm':
-            # Validate LLM configuration (only when LLM mode)
-            if not llm_url or not llm_model:
-                return jsonify({'error': 'LLM URL and Model name are required'}), 400
+        # Configure LLM (required for both filter modes for final analysis)
+        if not llm_url or not llm_model:
+            return jsonify({'error': 'LLM URL and Model name are required'}), 400
 
-            try:
-                custom_llm = LocalLLMInterface(
-                    base_url=llm_url,
-                    model=llm_model,
-                    timeout=llm_timeout,
-                    max_tokens=llm_max_tokens
-                )
-                orchestrator.keyword_extractor.llm_interface = custom_llm
-            except Exception as e:
-                return jsonify({'error': f'Failed to configure LLM: {str(e)}'}), 400
+        try:
+            custom_llm = LocalLLMInterface(
+                base_url=llm_url,
+                model=llm_model,
+                timeout=llm_timeout,
+                max_tokens=llm_max_tokens
+            )
+            orchestrator.keyword_extractor.llm_interface = custom_llm
+        except Exception as e:
+            return jsonify({'error': f'Failed to configure LLM: {str(e)}'}), 400
 
         # Handle file upload
         if 'log_file' not in request.files:

@@ -319,7 +319,7 @@
                 
         <div class="form-section" id="llm_details_section">
             <h2>🤖 LLM Configuration</h2>
-            <p style="margin-bottom: 20px; color: #7f8c8d;">Configure your local LLM for keyword extraction. Both URL and Model name are required.</p>
+            <p style="margin-bottom: 20px; color: #7f8c8d;">Configure your local LLM for keyword extraction and analysis. Both URL and Model selection are required.</p>
 
             <div class="form-group">
                 <label for="llm_url">LLM Server URL: <span style="color: red;">*</span></label>
@@ -330,16 +330,11 @@
             </div>
 
             <div class="form-group">
-                <label for="model_dropdown">Select Available Model:</label>
-                <select id="model_dropdown" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px;">
-                    <option value="">-- Select a model or enter manually --</option>
+                <label for="model_dropdown">Select Available Model: <span style="color: red;">*</span></label>
+                <select id="model_dropdown" name="llm_model" required style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px;">
+                    <option value="">-- Select a model --</option>
                 </select>
                 <div id="modelStatus" style="margin-top: 8px; font-size: 14px; color: #7f8c8d;"></div>
-            </div>
-
-            <div class="form-group">
-                <label for="llm_model">Model Name: <span style="color: red;">*</span></label>
-                <input type="text" id="llm_model" name="llm_model" placeholder="model name" required>
             </div>
 
             <div class="grid">
@@ -348,8 +343,8 @@
                     <input type="number" id="llm_timeout" name="llm_timeout" placeholder="120" value="120" min="5">
                 </div>
                 <div class="form-group">
-                    <label for="llm_max_tokens">Max Tokens:</label>
-                    <input type="number" id="llm_max_tokens" name="llm_max_tokens" placeholder="" value="4000" min="100">
+                    <label for="llm_max_tokens">Max Prompt Tokens:</label>
+                    <input type="number" id="llm_max_tokens" name="llm_max_tokens" placeholder="4000" value="4000" min="100">
                 </div>
             </div>
 
@@ -463,15 +458,18 @@
             const llmConfigSection = document.getElementById('llm_config_section');
             const checkboxSection = document.getElementById('checkbox_options_section');
             
-            // Hide/show LLM config section (Max Tokens, Context Lines)
+            // Hide/show LLM config section (Max Logs Tokens, Context Lines) - only for keyword extraction
             if (llmConfigSection) {
                 llmConfigSection.style.display = isVector ? 'none' : 'grid';
             }
             
-            // Hide/show checkbox options (Remove Duplicates, Prioritize by Severity)
+            // Hide/show checkbox options (Remove Duplicates, Prioritize by Severity) - only for keyword extraction
             if (checkboxSection) {
                 checkboxSection.style.display = isVector ? 'none' : 'block';
             }
+            
+            // LLM Configuration section (llm_details_section) is visible for both modes
+            // No need to hide/show it
         });
         
         // Trigger on page load to set initial state
@@ -481,7 +479,7 @@
         function getLLMConfig() {
             return {
                 url: document.getElementById('llm_url').value.trim(),
-                model: document.getElementById('llm_model').value.trim(),
+                model: document.getElementById('model_dropdown').value.trim(),
                 timeout: parseInt(document.getElementById('llm_timeout').value),
                 max_tokens: parseInt(document.getElementById('llm_max_tokens').value)
             };
@@ -589,29 +587,27 @@
             }
         });
         
-        // Auto-fill URL and model name when a model is selected
+        // Auto-fill URL when a model is selected
         document.getElementById('model_dropdown').addEventListener('change', function() {
             const selectedModelId = this.value;
             const urlInput = document.getElementById('llm_url');
-            const modelInput = document.getElementById('llm_model');
+            const modelStatus = document.getElementById('modelStatus');
             
             if (selectedModelId) {
                 // Find the selected model
                 const selectedModel = availableModels.find(m => m.id === selectedModelId);
                 
                 if (selectedModel) {
-                    // Auto-fill model name
-                    modelInput.value = selectedModel.id;
-                    
                     // If URL is empty, try to use the default
                     if (!urlInput.value.trim()) {
                         urlInput.value = 'http://127.0.0.1:1234';
                     }
                     
-                    const modelStatus = document.getElementById('modelStatus');
                     modelStatus.textContent = `✓ Selected: ${selectedModel.name}`;
                     modelStatus.style.color = '#27ae60';
                 }
+            } else {
+                modelStatus.textContent = '';
             }
         });
         
