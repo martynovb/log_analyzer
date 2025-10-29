@@ -16,7 +16,7 @@ from modules import (
     PromptGenerator, AnalysisData,
     AnalysisRequest, AnalysisResult,
     ResultHandler,
-    MockVectorLogFilter
+    VectorLogFilterImpl
 )
 
 
@@ -58,8 +58,8 @@ class LogAnalysisOrchestrator:
         # Step 2: Analyze logs (branch by filter mode)
         print("Analyzing logs...")
         if getattr(request, 'filter_mode', 'llm') == 'vector':
-            print("Using vector DB approach (mock)")
-            vector_filter = MockVectorLogFilter()
+            print("Using vector DB approach")
+            vector_filter = VectorLogFilterImpl()
             filtered_logs = vector_filter.filter(
                 issue_description=request.issue_description,
                 log_file_path=request.log_file_path,

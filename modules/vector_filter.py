@@ -7,7 +7,7 @@ Output: mocked filtered logs string
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional
+from modules.vector_db import VectorDb
 
 
 class VectorLogFilter(ABC):
@@ -19,19 +19,10 @@ class VectorLogFilter(ABC):
         raise NotImplementedError
 
 
-class MockVectorLogFilter(VectorLogFilter):
-    """Mock implementation that returns a placeholder string."""
+class VectorLogFilterImpl(VectorLogFilter):
 
     def filter(self, issue_description: str, log_file_path: str) -> str:
-        # This is mocked; replace with real vector retrieval later
-        header = "=== VECTOR FILTER (MOCK) ===\n"
-        details = (
-            f"Issue: {issue_description[:120]}\n"
-            f"Source Log: {log_file_path}\n"
-            "Matches:\n"
-            "[Line 1024] >>> Mocked relevant log line matching semantic meaning\n"
-            "[Line 2048]     Surrounding context...\n"
-        )
-        return header + details
-
-
+        db = VectorDb(input_document_path=log_file_path,
+                      output_directory="temp_vector_db")
+        results = db.search(issue_description)
+        return "\n".join(results)

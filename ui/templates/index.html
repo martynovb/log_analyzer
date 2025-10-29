@@ -423,7 +423,6 @@
         // Toggle LLM sections based on filter mode
         document.getElementById('filter_mode').addEventListener('change', function() {
             const isVector = this.value === 'vector';
-            document.getElementById('llm_details_section').style.display = isVector ? 'none' : 'block';
             document.getElementById('llm_config_section').style.display = isVector ? 'none' : 'grid';
         });
         

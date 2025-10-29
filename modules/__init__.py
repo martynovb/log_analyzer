@@ -22,7 +22,7 @@ from .context_retriever import ContextRetriever
 from .prompt_generator import PromptGenerator, AnalysisData
 from .domain import AnalysisRequest, AnalysisResult
 from .result_handler import ResultHandler
-from .vector_filter import VectorLogFilter, MockVectorLogFilter
+from .vector_filter import VectorLogFilter, VectorLogFilterImpl
 
 __all__ = [
     'LogAnalyzer',
@@ -48,6 +48,6 @@ __all__ = [
     'AnalysisResult',
     'ResultHandler',
     'VectorLogFilter',
-    'MockVectorLogFilter'
+    'VectorLogFilterImpl'
 ]
 

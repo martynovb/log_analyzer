@@ -4,3 +4,4 @@ app.log
 analysis_results/**
 assets/results/**
 assets/uploads/**
+temp_vector_db/
