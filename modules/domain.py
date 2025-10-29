@@ -8,6 +8,8 @@ from dataclasses import dataclass, field
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 
+from modules.utils import format_time
+
 
 @dataclass
 class AnalysisRequest:
@@ -35,4 +37,9 @@ class AnalysisResult:
     llm_analysis: Optional[str] = None
     timestamp: datetime = field(default_factory=datetime.now)
     processing_time_ms: int = 0
+
+    def processing_time_formatted(self):
+        processing_seconds = self.processing_time_ms / 1000.0
+        processing_time_formatted = format_time(processing_seconds)
+        return processing_time_formatted
 
