@@ -138,6 +138,7 @@ class ResultHandler:
         result_dict = {
             'timestamp': result.timestamp.isoformat(),
             'processing_time_ms': result.processing_time_ms,
+            'llm_model': getattr(result, 'llm_model', None),
             'request': {
                 'log_file_path': result.request.log_file_path,
                 'issue_description': result.request.issue_description,

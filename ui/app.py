@@ -52,7 +52,7 @@ def upload_log():
             'analysis_id': timestamp,
             'extracted_keywords': result.extracted_keywords,
             'processing_time_ms': result.processing_time_ms,
-            'processing_time_formatted': result.processing_time_formatted,
+            'processing_time_formatted': result.processing_time_formatted(),
             'filter_mode': form_data.filter_mode,
             'codebase_files': result.context_info['codebase']['total_files'],
             'documentation_items': result.context_info['documentation'][

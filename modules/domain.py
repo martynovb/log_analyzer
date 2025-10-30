@@ -35,6 +35,7 @@ class AnalysisResult:
     context_info: Dict[str, Any]
     generated_prompt: str
     llm_analysis: Optional[str] = None
+    llm_model: Optional[str] = None
     timestamp: datetime = field(default_factory=datetime.now)
     processing_time_ms: int = 0
 
