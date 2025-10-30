@@ -97,10 +97,7 @@ class PromptGenerator:
 
 Analyze the logs above and provide:
 
-1. **Root Cause**: What is causing the issue? Be specific and reference log entries.
-2. **How to Reproduce**: What sequence of events or actions leads to this issue?
-3. **Key Moments**: What log entries or patterns should we pay attention to? Quote the exact lines.
-4. **Recommendations**: What should be done to fix or prevent this issue?
+**Root Cause**: What is causing the issue? Be specific and reference log entries.
 
 Provide a clear, structured analysis with specific references to log entries."""
         
