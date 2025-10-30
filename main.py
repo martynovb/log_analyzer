@@ -1,7 +1,7 @@
 import argparse
-from typing import List, Optional
+from typing import List
 
-from modules import LogAnalyzer, LogFilterConfig
+from modules import LLMLogFilter, LLMLogFilterConfig
 
 
 def parse_args() -> argparse.Namespace:
@@ -23,7 +23,10 @@ def main():
 
     keywords: List[str] = [k.strip() for k in args.keywords.split(",") if k.strip()] if args.keywords else []
 
-    config = LogFilterConfig(
+    config = LLMLogFilterConfig(
+        keywords=keywords,
+        start_date=args.start_date,
+        end_date=args.end_date,
         log_file_path=args.log_file,
         max_tokens=args.max_tokens,
         context_lines=args.context_lines,
@@ -33,12 +36,8 @@ def main():
         max_results=None,
     )
 
-    analyzer = LogAnalyzer(config)
-    result = analyzer.analyze(
-        keywords=keywords,
-        start_date=args.start_date,
-        end_date=args.end_date,
-    )
+    log_filter = LLMLogFilter(config)
+    result = log_filter.filter()
 
     with open(args.output, "w", encoding="utf-8") as f:
         f.write(result)
