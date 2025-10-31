@@ -8,11 +8,11 @@ A Flask-based web interface for uploading logs and describing issues.
 import sys
 from pathlib import Path
 
-from ui.models.form_data import FormData
-
-# Add project root to Python path
+# Add project root to Python path BEFORE importing project modules
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
+
+from ui.models.form_data import FormData
 
 from flask import Flask, render_template, request, jsonify, send_file
 from datetime import datetime
