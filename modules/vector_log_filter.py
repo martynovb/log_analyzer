@@ -45,13 +45,12 @@ class VectorLogFilter(LogFilter):
         with open(filtered_logs_by_date_file_path, "w") as f:
             f.writelines(lines)
 
-        db = VectorDb(input_document_path=filtered_logs_by_date_file_path,
-                      output_directory=directory)
+        db = VectorDb(input_document_path=filtered_logs_by_date_file_path)
         results = db.search(self.config.issue_description)
 
         # Storing logs filtered by date and context
         filtered_logs_file_path = f"{directory}/filtered_logs.txt"
         with open(filtered_logs_file_path, "w") as f:
-            f.writelines(results)
+            f.writelines([f"\n{score=}, {logs=}" for logs, score in results])
 
-        return "\n".join(results)
+        return "\n".join([logs for logs, _ in results])
