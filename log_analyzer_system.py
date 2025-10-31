@@ -191,7 +191,7 @@ class LogAnalysisOrchestrator:
     def filter_logs(self, request: AnalysisRequest, keywords: list[str]) -> str:
         # Try cross-session cache first
         cached = self.get_cached_filtered_logs(request)
-        if cached is not None and cached != "":
+        if cached:
             return cached
 
         if request.filter_mode == 'vector':
