@@ -1,3 +1,6 @@
+from chromadb.api import CreateCollectionConfiguration
+from chromadb.api.collection_configuration import \
+    json_to_create_hnsw_configuration
 from langchain_chroma import Chroma
 from langchain_community.document_loaders import DirectoryLoader, \
     UnstructuredFileLoader
@@ -11,7 +14,7 @@ class VectorDb:
     EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
     def __init__(self,
-                 output_directory: str,
+                 persist_directory: str | None = None,
                  input_directory: str | None = None,
                  input_document_path: str | None = None,
                  embedding_model_name: str = EMBEDDING_MODEL_NAME,
@@ -32,12 +35,29 @@ class VectorDb:
             add_start_index=True,
         ).split_documents(documents)
 
+        self.chunk_number = len(chunks)
+        print(f"Created {self.chunk_number} chunks")
+
         embeddings = HuggingFaceEmbeddings(
             model_name=embedding_model_name,
             # model_kwargs={'device': 'cpu'}
         )
-        self.db = Chroma.from_documents(chunks, embeddings)
 
-    def search(self, query: str) -> list[str]:
-        documents = self.db.similarity_search(query)
-        return [d.page_content for d in documents]
+        collection_config = CreateCollectionConfiguration(
+            hnsw=json_to_create_hnsw_configuration(
+                {
+                    "space": "cosine",
+                    "ef_construction": 250,
+                    "ef_search": self.chunk_number,
+                }
+            )
+        )
+        self.db = Chroma.from_documents(chunks,
+                                        embeddings,
+                                        collection_configuration=collection_config,
+                                        persist_directory=persist_directory,
+                                        )
+
+    def search(self, query: str) -> list[tuple[str, float]]:
+        results = self.db.similarity_search_with_score(query, k=10)
+        return [(doc.page_content, score) for doc, score in results]
