@@ -6,9 +6,6 @@ All business logic is in the modules directory.
 """
 
 from datetime import datetime
-import hashlib
-from pathlib import Path
-import os
 
 # Import from modules - clean, modular approach
 from modules import (
@@ -22,7 +19,6 @@ from modules import (
     LocalLLMInterface
 )
 from modules.utils import format_time
-from modules.filtered_logs_cache import FilteredLogsCache
 
 
 class LogAnalysisOrchestrator:
@@ -36,7 +32,6 @@ class LogAnalysisOrchestrator:
         self.context_retriever = ContextRetriever()
         self.prompt_generator = PromptGenerator()
         self.result_handler = ResultHandler()
-        self.filtered_logs_cache = FilteredLogsCache()
 
     def analyze_issue(self, request: AnalysisRequest) -> AnalysisResult:
         """
@@ -169,31 +164,7 @@ class LogAnalysisOrchestrator:
         return self.result_handler.save_result(result, output_dir,
                                                custom_timestamp)
 
-    def get_cached_filtered_logs(self, request: AnalysisRequest) -> str | None:
-        return self.filtered_logs_cache.get(
-            request.log_file_path,
-            request.issue_description,
-            request.filter_mode,
-            request.start_date,
-            request.end_date,
-        )
-
-    def save_cached_filtered_logs(self, request: AnalysisRequest, logs: str) -> None:
-        self.filtered_logs_cache.save(
-            request.log_file_path,
-            request.issue_description,
-            request.filter_mode,
-            request.start_date,
-            request.end_date,
-            logs,
-        )
-
     def filter_logs(self, request: AnalysisRequest, keywords: list[str]) -> str:
-        # Try cross-session cache first
-        cached = self.get_cached_filtered_logs(request)
-        if cached is not None and cached != "":
-            return cached
-
         if request.filter_mode == 'vector':
             print("Using vector DB approach to filter logs")
             config = VectorLogFilterConfig(
@@ -219,9 +190,6 @@ class LogAnalysisOrchestrator:
             )
             log_filter = LLMLogFilter(config=config)
         filtered_logs = log_filter.filter()
-
-        # Persist to cache for future reuse across sessions
-        self.save_cached_filtered_logs(request, filtered_logs)
         return filtered_logs
 
     def extract_keywords(self, request: AnalysisRequest) -> list[str]:
