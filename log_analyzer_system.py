@@ -144,7 +144,7 @@ class LogAnalysisOrchestrator:
             },
             generated_prompt=generated_prompt,
             llm_analysis=llm_analysis,
-            llm_model=getattr(self.llm_interface, 'model', None),
+            llm_model=self.llm_interface.model,
             timestamp=end_time,
             processing_time_ms=processing_time_ms
         )
