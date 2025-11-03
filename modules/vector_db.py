@@ -48,8 +48,6 @@ class VectorDb:
                 persist_directory=persist_directory,
                 embedding_function=embeddings
             )
-            # Set chunk_number to None for existing DBs (not used in search anyway)
-            self.chunk_number = None
             return  # Skip the rest of initialization if loading existing DB
         
         # Create new vector DB
