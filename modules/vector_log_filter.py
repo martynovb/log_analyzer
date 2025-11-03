@@ -27,7 +27,7 @@ class VectorLogFilterConfig(LogFilterConfig):
 class VectorLogFilter(LogFilter):
     WORKING_DIRECTORY = "temp_vector_db"
     _cached_db_signature: dict | None = None
-    _cached_db_instance: VectorDb | None = None  # Keep reference to last DB for cleanup
+    _cached_db_instance: VectorDb | None = None
 
     def __init__(self, config: VectorLogFilterConfig):
         super().__init__(config)
@@ -44,21 +44,38 @@ class VectorLogFilter(LogFilter):
     def _can_reuse_db(self, directory: str) -> bool:
         """Check if existing DB can be reused based on cached signature."""
         if VectorLogFilter._cached_db_signature is None:
+            print("  DEBUG: _cached_db_signature is None - cannot reuse DB")
             return False
+        
+        if VectorLogFilter._cached_db_instance is None:
+            print("  DEBUG: _cached_db_instance is None (will attempt to reload if signature matches)")
 
         current_signature = self._get_db_signature()
+        cached_signature = VectorLogFilter._cached_db_signature
 
-        # Check if all key parameters match and directory exists
-        return (
-            VectorLogFilter._cached_db_signature.get("log_file_path")
-            == current_signature["log_file_path"]
-            and VectorLogFilter._cached_db_signature.get("start_date")
-            == current_signature["start_date"]
-            and VectorLogFilter._cached_db_signature.get("end_date")
-            == current_signature["end_date"]
-            and os.path.exists(directory)
-            and os.path.isdir(directory)
-        )
+        # Compare each field and print which one differs
+        fields_to_check = ["log_file_path", "start_date", "end_date"]
+        for field in fields_to_check:
+            cached_value = cached_signature.get(field)
+            current_value = current_signature.get(field)
+            if cached_value != current_value:
+                print(f"  DEBUG: Field '{field}' changed:")
+                print(f"    Cached: {repr(cached_value)}")
+                print(f"    Current: {repr(current_value)}")
+                return False
+
+        # Check if directory exists
+        if not os.path.exists(directory):
+            print(f"  DEBUG: Directory does not exist: {directory}")
+            return False
+        
+        if not os.path.isdir(directory):
+            print(f"  DEBUG: Path exists but is not a directory: {directory}")
+            return False
+
+        # All checks passed
+        print("  DEBUG: All signature fields match and directory exists - can reuse DB")
+        return True
 
     def filter(self) -> str:
         directory = VectorLogFilter.WORKING_DIRECTORY

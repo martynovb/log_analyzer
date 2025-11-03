@@ -8,13 +8,13 @@ A Flask-based web interface for uploading logs and describing issues.
 import sys
 from pathlib import Path
 
-# Add project root to Python path BEFORE importing project modules
+from models.form_data import FormData
+
+# Add project root to Python path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from ui.models.form_data import FormData
-
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, session
 from datetime import datetime
 
 from log_analyzer_system import LogAnalysisOrchestrator
@@ -22,6 +22,7 @@ from modules import LocalLLMInterface, AnalysisRequest
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+app.config['SECRET_KEY'] = 'log-analyzer-secret-key'  # Needed for session
 
 # Store for uploaded files - use assets folder structure
 project_root = Path(__file__).parent.parent
@@ -85,7 +86,11 @@ def configure_llm(orchestrator: LogAnalysisOrchestrator, form_data: FormData):
 
 
 def handle_file_upload(upload_folder: str) -> tuple[Path, str]:
-    """Validate and save uploaded log file, returning (filepath, timestamp)."""
+    """Validate and save uploaded log file, returning (filepath, timestamp).
+    
+    Only creates a new upload file if the user actually uploaded a different file.
+    Reuses the previous file path if the same file is analyzed again.
+    """
     if 'log_file' not in request.files:
         raise ValueError('No log file uploaded')
 
@@ -93,10 +98,35 @@ def handle_file_upload(upload_folder: str) -> tuple[Path, str]:
     if not file.filename:
         raise ValueError('No file selected')
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{timestamp}_{file.filename}"
-    filepath = Path(upload_folder) / filename
-    file.save(filepath)
+    # Check if we have a previous upload in session
+    last_file_info = session.get('last_uploaded_file')
+    
+    # Check if this is the same file as before (same filename)
+    is_same_file = (
+        last_file_info is not None
+        and last_file_info.get('filename') == file.filename
+        and Path(last_file_info.get('filepath')).exists()
+    )
+    
+    if is_same_file:
+        # Reuse the previous file - no new upload needed
+        filepath = Path(last_file_info['filepath'])
+        timestamp = last_file_info.get('timestamp', datetime.now().strftime("%Y%m%d_%H%M%S"))
+        print(f"  Reusing previously uploaded file: {filepath.name}")
+    else:
+        # Save as new file - user uploaded a different file
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{timestamp}_{file.filename}"
+        filepath = Path(upload_folder) / filename
+        file.save(filepath)
+        
+        # Store in session for next time
+        session['last_uploaded_file'] = {
+            'filename': file.filename,
+            'filepath': str(filepath),
+            'timestamp': timestamp
+        }
+        print(f"  Saved new uploaded file: {filename}")
 
     return filepath, timestamp
 
