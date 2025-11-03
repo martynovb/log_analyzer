@@ -31,6 +31,15 @@ class DbSignature:
     start_date: Optional[str]
     end_date: Optional[str]
 
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, DbSignature):
+            return False
+        return (
+            self.log_file_path == other.log_file_path
+            and self.start_date == other.start_date
+            and self.end_date == other.end_date
+        )
+
 
 @dataclass
 class DbCache:
@@ -57,45 +66,17 @@ class VectorLogFilter(LogFilter):
     def _can_reuse_db(self, directory: str) -> bool:
         """Check if existing DB can be reused based on cached signature."""
         if VectorLogFilter._cached_db_cache is None:
-            print("  DEBUG: _cached_db_cache is None - cannot reuse DB")
             return False
-        
-        if VectorLogFilter._cached_db_cache.db is None:
-            print("  DEBUG: _cached_db_cache.db is None (will attempt to reload if signature matches)")
+
+        if not os.path.exists(directory) or not os.path.isdir(directory):
+            return False
 
         current_signature = self._get_db_signature()
         cached_signature = VectorLogFilter._cached_db_cache.db_signature
 
-        # Compare each field and print which one differs
-        if cached_signature.log_file_path != current_signature.log_file_path:
-            print("  DEBUG: Field 'log_file_path' changed:")
-            print(f"    Cached: {repr(cached_signature.log_file_path)}")
-            print(f"    Current: {repr(current_signature.log_file_path)}")
-            return False
-        
-        if cached_signature.start_date != current_signature.start_date:
-            print("  DEBUG: Field 'start_date' changed:")
-            print(f"    Cached: {repr(cached_signature.start_date)}")
-            print(f"    Current: {repr(current_signature.start_date)}")
-            return False
-        
-        if cached_signature.end_date != current_signature.end_date:
-            print("  DEBUG: Field 'end_date' changed:")
-            print(f"    Cached: {repr(cached_signature.end_date)}")
-            print(f"    Current: {repr(current_signature.end_date)}")
+        if cached_signature != current_signature:
             return False
 
-        # Check if directory exists
-        if not os.path.exists(directory):
-            print(f"  DEBUG: Directory does not exist: {directory}")
-            return False
-        
-        if not os.path.isdir(directory):
-            print(f"  DEBUG: Path exists but is not a directory: {directory}")
-            return False
-
-        # All checks passed
-        print("  DEBUG: All signature fields match and directory exists - can reuse DB")
         return True
 
     def filter(self) -> str:

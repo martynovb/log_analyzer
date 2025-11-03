@@ -272,8 +272,8 @@ Error handling and exception scenarios are important to test as well.
         
         # Verify DB was loaded
         self.assertIsNotNone(db2.db)
-        # chunk_number should be None for loaded DBs
-        self.assertIsNone(db2.chunk_number)
+        # chunk_number is not set when loading existing DBs (early return in __init__)
+        self.assertFalse(hasattr(db2, 'chunk_number'))
         
         # Verify both can search
         results1 = db1.search("test")
@@ -293,8 +293,8 @@ Error handling and exception scenarios are important to test as well.
 2025-10-16T10:00:00 INFO Session ended
 """)
         
-        # Clear cached signature
-        VectorLogFilter._cached_db_signature = None
+        # Clear cached DB cache
+        VectorLogFilter._cached_db_cache = None
         
         # Use test directory instead of temp directory
         work_dir = os.path.join(self.test_dir, "test_vector_db_reuse")
@@ -317,7 +317,8 @@ Error handling and exception scenarios are important to test as well.
             
             # Verify DB was created and signature cached
             self.assertTrue(os.path.exists(work_dir))
-            self.assertIsNotNone(VectorLogFilter._cached_db_signature)
+            self.assertIsNotNone(VectorLogFilter._cached_db_cache)
+            self.assertIsNotNone(VectorLogFilter._cached_db_cache.db_signature)
             self.assertGreater(len(results1), 0)
             
             # Force garbage collection to release file handles
@@ -338,7 +339,7 @@ Error handling and exception scenarios are important to test as well.
             self.assertGreater(len(results2), 0)
             # Verify signature still matches
             self.assertEqual(
-                VectorLogFilter._cached_db_signature.get("log_file_path"),
+                VectorLogFilter._cached_db_cache.db_signature.log_file_path,
                 test_log
             )
             
@@ -376,7 +377,7 @@ Error handling and exception scenarios are important to test as well.
             filter1 = VectorLogFilter(config1)
             results1 = filter1.filter()
             
-            original_signature = VectorLogFilter._cached_db_signature.copy()
+            original_signature = VectorLogFilter._cached_db_cache.db_signature
             
             # Force garbage collection to release file handles
             import gc
@@ -393,9 +394,11 @@ Error handling and exception scenarios are important to test as well.
             results2 = filter2.filter()
             
             # Verify new signature was cached (different from original)
+            self.assertIsNotNone(VectorLogFilter._cached_db_cache)
+            self.assertIsNotNone(VectorLogFilter._cached_db_cache.db_signature)
             self.assertNotEqual(
-                VectorLogFilter._cached_db_signature.get("start_date"),
-                original_signature.get("start_date")
+                VectorLogFilter._cached_db_cache.db_signature.start_date,
+                original_signature.start_date
             )
             self.assertGreater(len(results2), 0)
             
@@ -433,7 +436,7 @@ Error handling and exception scenarios are important to test as well.
             filter1 = VectorLogFilter(config1)
             results1 = filter1.filter()
             
-            original_signature = VectorLogFilter._cached_db_signature.copy()
+            original_signature = VectorLogFilter._cached_db_cache.db_signature
             
             # Force garbage collection to release file handles
             import gc
@@ -450,9 +453,11 @@ Error handling and exception scenarios are important to test as well.
             results2 = filter2.filter()
             
             # Verify new signature was cached (different file path)
+            self.assertIsNotNone(VectorLogFilter._cached_db_cache)
+            self.assertIsNotNone(VectorLogFilter._cached_db_cache.db_signature)
             self.assertNotEqual(
-                VectorLogFilter._cached_db_signature.get("log_file_path"),
-                original_signature.get("log_file_path")
+                VectorLogFilter._cached_db_cache.db_signature.log_file_path,
+                original_signature.log_file_path
             )
             self.assertGreater(len(results2), 0)
             
