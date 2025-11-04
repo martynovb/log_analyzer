@@ -1,14 +1,17 @@
 """
-Vector-based Log Filter (Mock)
+Vector-based Log Filter
 
-Interface and mock implementation for vector DB log filtering.
+Interface and implementation for vector DB log filtering.
 Input: issue description, uploaded log file path
-Output: mocked filtered logs string
+Output: filtered logs string
 """
+import json
 import os
 import shutil
-from dataclasses import dataclass
+
 from typing import Optional
+from dataclasses import dataclass, asdict
+from pathlib import Path
 
 from modules.log_filter import LogFilterConfig, LogFilter
 from modules.vector_db import VectorDb
@@ -17,6 +20,9 @@ from modules.vector_db import VectorDb
 @dataclass
 class VectorLogFilterConfig(LogFilterConfig):
     issue_description: str
+    chunk_size: int = 800
+    chunk_overlap: int = 200
+    embedding_model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
 
     def __post_init__(self):
         super().__post_init__()
@@ -35,9 +41,9 @@ class DbSignature:
         if not isinstance(other, DbSignature):
             return False
         return (
-            self.log_file_path == other.log_file_path
-            and self.start_date == other.start_date
-            and self.end_date == other.end_date
+                self.log_file_path == other.log_file_path
+                and self.start_date == other.start_date
+                and self.end_date == other.end_date
         )
 
 
@@ -47,15 +53,23 @@ class DbCache:
     db_signature: DbSignature
 
 
+@dataclass
+class VectorLogFilterResponse:
+    logs: str
+    # Score represents how much the chunk is similar to the requested string.
+    # Lower score represents more similarity.
+    score: float
+
+
 class VectorLogFilter(LogFilter):
     WORKING_DIRECTORY = "temp_vector_db"
-    _cached_db_cache: DbCache | None = None
+    _db_cache: DbCache | None = None
 
     def __init__(self, config: VectorLogFilterConfig):
         super().__init__(config)
         self.config = config
 
-    def _get_db_signature(self) -> DbSignature:
+    def _get_current_db_signature(self) -> DbSignature:
         """Create a signature for the current DB parameters."""
         return DbSignature(
             log_file_path=self.config.log_file_path,
@@ -63,44 +77,40 @@ class VectorLogFilter(LogFilter):
             end_date=self.config.end_date,
         )
 
-    def _can_reuse_db(self, directory: str) -> bool:
+    def _get_cached_db(self, directory: str) -> VectorDb | None:
         """Check if existing DB can be reused based on cached signature."""
-        if VectorLogFilter._cached_db_cache is None:
-            return False
+        if not VectorLogFilter._db_cache:
+            return None
 
         if not os.path.exists(directory) or not os.path.isdir(directory):
-            return False
+            return None
 
-        current_signature = self._get_db_signature()
-        cached_signature = VectorLogFilter._cached_db_cache.db_signature
+        current_signature = self._get_current_db_signature()
+        cached_signature = VectorLogFilter._db_cache.db_signature
 
         if cached_signature != current_signature:
-            return False
+            return None
 
-        return True
+        return VectorLogFilter._db_cache.db
 
     def filter(self) -> str:
         directory = VectorLogFilter.WORKING_DIRECTORY
 
         # Check if we can reuse existing DB
-        can_reuse = self._can_reuse_db(directory)
-
-        if can_reuse:
+        if cached_db := self._get_cached_db(directory):
             print(
                 "  Reusing existing vector DB (log_file_path, start_date, end_date unchanged)"
             )
-            # Load existing DB (keep it open for reuse)
-            db = VectorDb(persist_directory=directory, load_existing=True)
-            # Update the cached instance reference
-            VectorLogFilter._cached_db_cache.db = db
+            db = cached_db
         else:
-            print("  Creating new vector DB (parameters changed or DB not found)")
+            print(
+                "  Creating new vector DB (parameters changed or DB not found)")
             # Close previous DB instance if it exists to release file handles
             # This is important on Windows before deleting the directory
-            if VectorLogFilter._cached_db_cache is not None and VectorLogFilter._cached_db_cache.db is not None:
-                VectorLogFilter._cached_db_cache.db.close()
-                VectorLogFilter._cached_db_cache = None
-            
+            if VectorLogFilter._db_cache:
+                VectorLogFilter._db_cache.db.close()
+                VectorLogFilter._db_cache = None
+
             # Clear out the working directory first.
             # After closing, we should be able to delete without ignore_errors
             # but keep it as a safety measure
@@ -110,27 +120,48 @@ class VectorLogFilter(LogFilter):
 
             lines = self.filter_by_date()
             # Storing logs filtered by date
-            filtered_logs_by_date_file_path = f"{directory}/filtered_logs_by_date.txt"
+            filtered_logs_by_date_file_path = Path(
+                f"{directory}/filtered_logs_by_date.txt")
             with open(filtered_logs_by_date_file_path, "w") as f:
                 f.writelines(lines)
 
             # Create new DB
             db = VectorDb(
+                persist_directory=directory,
                 input_document_path=filtered_logs_by_date_file_path,
-                persist_directory=directory
+                chunk_size=self.config.chunk_size,
+                chunk_overlap=self.config.chunk_overlap,
+                embedding_model_name=self.config.embedding_model_name,
             )
+            filtered_logs_by_date_file_path.unlink()
 
             # Cache signature and instance in memory for future reuse
-            db_signature = self._get_db_signature()
-            VectorLogFilter._cached_db_cache = DbCache(db=db, db_signature=db_signature)
+            VectorLogFilter._db_cache = DbCache(db=db,
+                                                db_signature=self._get_current_db_signature())
 
         # Perform search with current issue_description
         # (issue_description can change without needing to recreate DB)
-        results = db.search(self.config.issue_description)
+        db_entries = db.search(self.config.issue_description,
+                               k=self.get_number_of_filtered_entries())
+
+        # Convert response to json
+        filter_response = [
+            asdict(
+                VectorLogFilterResponse(
+                    logs=entry.chunk,
+                    score=entry.score)
+            )
+            for entry in db_entries
+        ]
+        json_str = json.dumps(filter_response, indent=2)
 
         # Storing logs filtered by date and context
         filtered_logs_file_path = f"{directory}/filtered_logs.txt"
         with open(filtered_logs_file_path, "w") as f:
-            f.writelines([f"\n{score=}, {logs=}" for logs, score in results])
+            f.writelines(json_str)
 
-        return "\n".join([logs for logs, _ in results])
+        return json_str
+
+    def get_number_of_filtered_entries(self) -> int:
+        k = self.config.max_chars // self.config.chunk_size
+        return k

@@ -294,7 +294,7 @@ Error handling and exception scenarios are important to test as well.
 """)
         
         # Clear cached DB cache
-        VectorLogFilter._cached_db_cache = None
+        VectorLogFilter._db_cache = None
         
         # Use test directory instead of temp directory
         work_dir = os.path.join(self.test_dir, "test_vector_db_reuse")
@@ -317,8 +317,8 @@ Error handling and exception scenarios are important to test as well.
             
             # Verify DB was created and signature cached
             self.assertTrue(os.path.exists(work_dir))
-            self.assertIsNotNone(VectorLogFilter._cached_db_cache)
-            self.assertIsNotNone(VectorLogFilter._cached_db_cache.db_signature)
+            self.assertIsNotNone(VectorLogFilter._db_cache)
+            self.assertIsNotNone(VectorLogFilter._db_cache.db_signature)
             self.assertGreater(len(results1), 0)
             
             # Force garbage collection to release file handles
@@ -339,7 +339,7 @@ Error handling and exception scenarios are important to test as well.
             self.assertGreater(len(results2), 0)
             # Verify signature still matches
             self.assertEqual(
-                VectorLogFilter._cached_db_cache.db_signature.log_file_path,
+                VectorLogFilter._db_cache.db_signature.log_file_path,
                 test_log
             )
             
@@ -377,7 +377,7 @@ Error handling and exception scenarios are important to test as well.
             filter1 = VectorLogFilter(config1)
             results1 = filter1.filter()
             
-            original_signature = VectorLogFilter._cached_db_cache.db_signature
+            original_signature = VectorLogFilter._db_cache.db_signature
             
             # Force garbage collection to release file handles
             import gc
@@ -394,10 +394,10 @@ Error handling and exception scenarios are important to test as well.
             results2 = filter2.filter()
             
             # Verify new signature was cached (different from original)
-            self.assertIsNotNone(VectorLogFilter._cached_db_cache)
-            self.assertIsNotNone(VectorLogFilter._cached_db_cache.db_signature)
+            self.assertIsNotNone(VectorLogFilter._db_cache)
+            self.assertIsNotNone(VectorLogFilter._db_cache.db_signature)
             self.assertNotEqual(
-                VectorLogFilter._cached_db_cache.db_signature.start_date,
+                VectorLogFilter._db_cache.db_signature.start_date,
                 original_signature.start_date
             )
             self.assertGreater(len(results2), 0)
@@ -436,7 +436,7 @@ Error handling and exception scenarios are important to test as well.
             filter1 = VectorLogFilter(config1)
             results1 = filter1.filter()
             
-            original_signature = VectorLogFilter._cached_db_cache.db_signature
+            original_signature = VectorLogFilter._db_cache.db_signature
             
             # Force garbage collection to release file handles
             import gc
@@ -453,10 +453,10 @@ Error handling and exception scenarios are important to test as well.
             results2 = filter2.filter()
             
             # Verify new signature was cached (different file path)
-            self.assertIsNotNone(VectorLogFilter._cached_db_cache)
-            self.assertIsNotNone(VectorLogFilter._cached_db_cache.db_signature)
+            self.assertIsNotNone(VectorLogFilter._db_cache)
+            self.assertIsNotNone(VectorLogFilter._db_cache.db_signature)
             self.assertNotEqual(
-                VectorLogFilter._cached_db_cache.db_signature.log_file_path,
+                VectorLogFilter._db_cache.db_signature.log_file_path,
                 original_signature.log_file_path
             )
             self.assertGreater(len(results2), 0)

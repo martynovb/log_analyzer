@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 from models.form_data import FormData
+from modules.domain import FilterMode
 
 # Add project root to Python path
 project_root = Path(__file__).parent.parent
@@ -137,7 +138,7 @@ def create_analysis_request(filepath: Path,
     return AnalysisRequest(
         log_file_path=str(filepath),
         issue_description=form_data.issue_description,
-        filter_mode=form_data.filter_mode,
+        filter_mode=FilterMode(form_data.filter_mode),
         start_date=form_data.start_date or None,
         end_date=form_data.end_date or None,
         max_tokens=form_data.max_tokens,

@@ -1,4 +1,7 @@
 import os
+from dataclasses import dataclass
+from pathlib import Path
+
 from chromadb.api import CreateCollectionConfiguration
 from chromadb.api.collection_configuration import \
     json_to_create_hnsw_configuration
@@ -9,18 +12,22 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 
-class VectorDb:
-    CHUNK_SIZE = 800
-    CHUNK_OVERLAP = 200
-    EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+@dataclass
+class VectorDbEntry:
+    chunk: str
+    # Score represents how much the chunk is similar to the requested string.
+    # Lower score represents more similarity.
+    score: float
 
+
+class VectorDb:
     def __init__(self,
                  persist_directory: str | None = None,
                  input_directory: str | None = None,
-                 input_document_path: str | None = None,
-                 embedding_model_name: str = EMBEDDING_MODEL_NAME,
-                 chunk_size=CHUNK_SIZE,
-                 chunk_overlap=CHUNK_OVERLAP,
+                 input_document_path: str | Path | None = None,
+                 embedding_model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
+                 chunk_size=800,
+                 chunk_overlap=200,
                  load_existing: bool = False,
                  ):
         """
@@ -39,17 +46,18 @@ class VectorDb:
             model_name=embedding_model_name,
             # model_kwargs={'device': 'cpu'}
         )
-        
+
         if load_existing:
             # Load existing vector DB from persistent directory
             if not os.path.exists(persist_directory):
-                raise RuntimeError(f"Vector DB directory does not exist: {persist_directory}")
+                raise RuntimeError(
+                    f"Vector DB directory does not exist: {persist_directory}")
             self.db = Chroma(
                 persist_directory=persist_directory,
                 embedding_function=embeddings
             )
             return  # Skip the rest of initialization if loading existing DB
-        
+
         # Create new vector DB
         if input_directory:
             documents = DirectoryLoader(input_directory).load()
@@ -83,9 +91,11 @@ class VectorDb:
                                         persist_directory=persist_directory,
                                         )
 
-    def search(self, query: str) -> list[tuple[str, float]]:
-        results = self.db.similarity_search_with_score(query, k=10)
-        return [(doc.page_content, score) for doc, score in results]
+    def search(self, query: str, k: int = 10) -> list[VectorDbEntry]:
+        results = self.db.similarity_search_with_score(query, k=k)
+        return [VectorDbEntry(chunk=doc.page_content,
+                              score=score) for
+                doc, score in results]
 
     def close(self):
         """
