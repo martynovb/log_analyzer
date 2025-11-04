@@ -6,6 +6,4 @@ assets/results/**
 assets/uploads/**
 temp_vector_db/**
 .idea/**
-=======
-temp_vector_db/
 RESULTS.md
