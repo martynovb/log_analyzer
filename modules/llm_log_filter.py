@@ -10,7 +10,6 @@ from modules.log_filter import LogFilterConfig, LogFilter
 @dataclass
 class LLMLogFilterConfig(LogFilterConfig):
     keywords: list[str]
-    max_tokens: int = 3500
     context_lines: int = 2
     deduplicate: bool = True
     prioritize_by_severity: bool = False
@@ -21,17 +20,10 @@ class LLMLogFilterConfig(LogFilterConfig):
         super().__post_init__()
         if not self.keywords:
             raise ValueError("Error: No keywords provided for filtering.")
-        if self.max_tokens <= 0:
-            raise ValueError("max_tokens must be positive")
         if self.context_lines < 0:
             raise ValueError("context_lines must be non-negative")
         if self.max_results is not None and self.max_results <= 0:
             raise ValueError("max_results must be positive if specified")
-
-    @property
-    def max_chars(self) -> int:
-        """Calculate maximum characters based on token limit."""
-        return self.max_tokens * 4  # Rough estimation: 1 token ≈ 4 characters
 
 
 class LLMLogFilter(LogFilter):

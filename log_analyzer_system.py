@@ -18,6 +18,7 @@ from modules import (
     ResultHandler,
     LocalLLMInterface
 )
+from modules.domain import FilterMode
 from modules.utils import format_time
 
 
@@ -55,7 +56,7 @@ class LogAnalysisOrchestrator:
         # Step 2: Filter logs (branch by filter mode)
         step2_start = datetime.now()
         print(
-            f"Step 2: Analyzing logs using {'Vector DB' if request.filter_mode == 'vector' else 'keyword-based'} approach...")
+            f"Step 2: Analyzing logs using {'Vector DB' if request.filter_mode.value == 'vector' else 'keyword-based'} approach...")
         filtered_logs = self.filter_logs(request, keywords=all_keywords)
         step2_end = datetime.now()
         self.print_step_time("Step 2: Log filtering", step2_start, step2_end)
@@ -92,6 +93,7 @@ class LogAnalysisOrchestrator:
         analysis_data = AnalysisData(
             issue_description=request.issue_description,
             extracted_keywords=all_keywords,
+            filter_mode=request.filter_mode,
             filtered_logs=filtered_logs,
             context_description=combined_context,
             log_file_path=request.log_file_path,
@@ -165,56 +167,59 @@ class LogAnalysisOrchestrator:
                                                custom_timestamp)
 
     def filter_logs(self, request: AnalysisRequest, keywords: list[str]) -> str:
-        if request.filter_mode == 'vector':
-            print("Using vector DB approach to filter logs")
-            config = VectorLogFilterConfig(
-                issue_description=request.issue_description,
-                log_file_path=request.log_file_path,
-                start_date=request.start_date,
-                end_date=request.end_date
-            )
-            log_filter = VectorLogFilter(config=config)
-        else:
-            print("Using LLM approach to filter logs")
-            config = LLMLogFilterConfig(
-                keywords=keywords,
-                log_file_path=request.log_file_path,
-                max_tokens=request.max_tokens,
-                context_lines=request.context_lines,
-                deduplicate=request.deduplicate,
-                prioritize_by_severity=request.prioritize_by_severity,
-                prioritize_matches=True,
-                max_results=None,
-                start_date=request.start_date,
-                end_date=request.end_date
-            )
-            log_filter = LLMLogFilter(config=config)
+        match request.filter_mode:
+            case FilterMode.vector:
+                print("Using vector DB approach to filter logs")
+                config = VectorLogFilterConfig(
+                    issue_description=request.issue_description,
+                    log_file_path=request.log_file_path,
+                    start_date=request.start_date,
+                    end_date=request.end_date,
+                    max_tokens=request.max_tokens,
+                )
+                log_filter = VectorLogFilter(config=config)
+            case FilterMode.llm:
+                print("Using LLM approach to filter logs")
+                config = LLMLogFilterConfig(
+                    keywords=keywords,
+                    log_file_path=request.log_file_path,
+                    max_tokens=request.max_tokens,
+                    context_lines=request.context_lines,
+                    deduplicate=request.deduplicate,
+                    prioritize_by_severity=request.prioritize_by_severity,
+                    prioritize_matches=True,
+                    max_results=None,
+                    start_date=request.start_date,
+                    end_date=request.end_date
+                )
+                log_filter = LLMLogFilter(config=config)
         filtered_logs = log_filter.filter()
         return filtered_logs
 
     def extract_keywords(self, request: AnalysisRequest) -> list[str]:
-        if request.filter_mode == 'vector':
-            # For vector DB mode, skip LLM keyword extraction
-            print(
-                "Step 1: Skipping keyword extraction (vector DB mode - keywords not needed for filtering)...")
-            return []
-        else:
-            # For LLM/keyword mode, use LLM-based keyword extraction
-            print(
-                "Step 1: Extracting keywords from issue description using LLM...")
-            extracted_keywords_objects = self.keyword_extractor.extract_keywords(
-                request.issue_description)
-            extracted_keywords = [kw.keyword for kw in
-                                  extracted_keywords_objects]
+        match request.filter_mode:
+            case FilterMode.vector:
+                # For vector DB mode, skip LLM keyword extraction
+                print(
+                    "Step 1: Skipping keyword extraction (vector DB mode - keywords not needed for filtering)...")
+                return []
+            case FilterMode.llm:
+                # For LLM/keyword mode, use LLM-based keyword extraction
+                print(
+                    "Step 1: Extracting keywords from issue description using LLM...")
+                extracted_keywords_objects = self.keyword_extractor.extract_keywords(
+                    request.issue_description)
+                extracted_keywords = [kw.keyword for kw in
+                                      extracted_keywords_objects]
 
-            # Add any manually provided keywords
-            if request.keywords:
-                extracted_keywords.extend(request.keywords)
+                # Add any manually provided keywords
+                if request.keywords:
+                    extracted_keywords.extend(request.keywords)
 
-            # Remove duplicates
-            all_keywords = list(set(extracted_keywords))
-            print(f"  Extracted keywords: {all_keywords}")
-            return all_keywords
+                # Remove duplicates
+                all_keywords = list(set(extracted_keywords))
+                print(f"  Extracted keywords: {all_keywords}")
+                return all_keywords
 
     def print_step_time(self, step_name: str, step_start: datetime,
                         step_end: datetime):

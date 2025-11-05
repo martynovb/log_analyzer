@@ -5,11 +5,16 @@ Data classes for the log analysis system.
 """
 
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 
 from modules.utils import format_time
 
+
+class FilterMode(str, Enum):
+    vector = "vector"
+    llm = "llm"
 
 @dataclass
 class AnalysisRequest:
@@ -17,7 +22,7 @@ class AnalysisRequest:
     log_file_path: str
     issue_description: str
     keywords: Optional[List[str]] = None
-    filter_mode: str = "llm"  # "llm" or "vector"
+    filter_mode: FilterMode = FilterMode.llm  # "llm" or "vector"
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     max_tokens: int = 3500

@@ -8,12 +8,15 @@ by combining issue descriptions, filtered logs, and relevant context.
 from typing import List, Optional
 from dataclasses import dataclass
 
+from modules.domain import FilterMode
+
 
 @dataclass
 class AnalysisData:
     """Container for all analysis data."""
     issue_description: str
     extracted_keywords: List[str]
+    filter_mode: FilterMode
     filtered_logs: str
     context_description: str
     log_file_path: str
@@ -22,26 +25,26 @@ class AnalysisData:
 
 class PromptGenerator:
     """Generates simple, focused prompts for LLM log analysis."""
-    
+
     def format_context(self, context: dict, context_type: str) -> str:
         """Format context information for the prompt."""
         if not context:
             return f"No {context_type.lower()} context available."
-        
+
         formatted = f"### {context_type} Information\n"
-        
+
         # Handle codebase/files context
         if 'relevant_files' in context:
             formatted += f"**Relevant Files ({context.get('total_files', 0)}):**\n"
             for file in context['relevant_files']:
                 formatted += f"- {file}\n"
-        
+
         # Handle documentation context
         if 'relevant_documentation' in context:
             formatted += f"**Relevant Documentation ({context.get('total_docs', 0)}):**\n"
             for doc in context['relevant_documentation']:
                 formatted += f"- {doc}\n"
-        
+
         # Handle detailed items if available (for JSON-based context)
         if 'relevant_items' in context:
             items = context['relevant_items']
@@ -58,13 +61,13 @@ class PromptGenerator:
                         formatted += f"\n**{item_title}:**\n{item_content}\n"
                     else:
                         formatted += f"- {item_title}\n"
-        
+
         formatted += f"\n**Search Method:** {context.get('retrieval_method', 'Unknown')}\n"
         if 'search_keywords' in context:
             formatted += f"**Search Keywords:** {', '.join(context.get('search_keywords', []))}\n"
-        
+
         return formatted
-    
+
     def generate_prompt(self, analysis_data: AnalysisData) -> str:
         """
         Generate a simple, focused prompt for log analysis.
@@ -86,12 +89,7 @@ class PromptGenerator:
 ## Context Information
 {analysis_data.context_description}
 
-## Log File
-- Path: {analysis_data.log_file_path}
-- Date Range: {analysis_data.analysis_date_range or 'Not specified'}
-
-## Filtered Log Entries
-{analysis_data.filtered_logs}
+{self.get_logs_prompt(analysis_data)}
 
 ## Analysis Task
 
@@ -100,5 +98,25 @@ Analyze the logs above and provide:
 **Root Cause**: What is causing the issue? Be specific and reference log entries.
 
 Provide a clear, structured analysis with specific references to log entries."""
-        
+
         return prompt
+
+    def get_logs_prompt(self, analysis_data: AnalysisData) -> str:
+        common_part = f"""## Log File
+- Path: {analysis_data.log_file_path}
+- Date Range: {analysis_data.analysis_date_range or 'Not specified'}
+
+## Filtered Log Entries
+{analysis_data.filtered_logs}"""
+
+        match analysis_data.filter_mode:
+            case FilterMode.llm:
+                return common_part
+            case FilterMode.vector:
+                vector_specific_part = """Logs are presented in a json format as a list of dictionaries:
+"[{\"score\":0.3708814,\"logs\":\"timestamp1 <log_level1> log_tag1: message1\ntimestamp2 <log_level2> log_tag2: message2\"},
+{\"score\":0.786563,\"logs\":\"timestamp3 <log_level3> log_tag3: message3\ntimestamp4 <log_level4> log_tag4: message4\"}]"
+where score represents how much the logs are similar to the requested string.
+Lower score represents more similarity.
+The logs in a json are sorted by score. Pay attention to the score and consider it in your answer."""
+                return f"{vector_specific_part}\n{common_part}"

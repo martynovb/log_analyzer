@@ -297,7 +297,7 @@
                             <label for="max_tokens">Max Tokens:</label>
                             <input type="number" id="max_tokens" name="max_tokens" value="3500" min="1000">
                         </div>
-                        <div class="form-group">
+                        <div class="form-group" id="context_lines_section">
                             <label for="context_lines">Context Lines:</label>
                             <input type="number" id="context_lines" name="context_lines" value="2" min="0" max="10">
                         </div>
@@ -455,12 +455,12 @@
         // Toggle LLM sections and options based on filter mode
         document.getElementById('filter_mode').addEventListener('change', function() {
             const isVector = this.value === 'vector';
-            const llmConfigSection = document.getElementById('llm_config_section');
+            const contextLinesSection = document.getElementById('context_lines_section');
             const checkboxSection = document.getElementById('checkbox_options_section');
             
             // Hide/show LLM config section (Max Logs Tokens, Context Lines) - only for keyword extraction
-            if (llmConfigSection) {
-                llmConfigSection.style.display = isVector ? 'none' : 'grid';
+            if (contextLinesSection) {
+                contextLinesSection.style.display = isVector ? 'none' : 'grid';
             }
             
             // Hide/show checkbox options (Remove Duplicates, Prioritize by Severity) - only for keyword extraction

@@ -18,11 +18,19 @@ class LogFilterConfig:
     log_file_path: str
     start_date: Optional[str] = None
     end_date: Optional[str] = None
+    max_tokens: int = 3500
 
     def __post_init__(self):
         """Validate configuration parameters."""
         if not self.log_file_path:
             raise ValueError("log_file_path cannot be empty")
+        if self.max_tokens <= 0:
+            raise ValueError("max_tokens must be positive")
+
+    @property
+    def max_chars(self) -> int:
+        """Calculate maximum characters based on token limit."""
+        return self.max_tokens * 4  # Rough estimation: 1 token ≈ 4 characters
 
 
 class LogFilter(ABC):
@@ -50,7 +58,7 @@ class LogFilter(ABC):
                                                           self.config.start_date,
                                                           self.config.end_date)
             print(f"After date filtering: {len(lines)} lines")
-        return  lines
+        return lines
 
     @abstractmethod
     def filter(self) -> str:
