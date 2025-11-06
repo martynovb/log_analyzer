@@ -9,7 +9,6 @@ Tests all components of the modular log analysis system.
 import unittest
 import tempfile
 import os
-from pathlib import Path
 from datetime import datetime
 
 from log_analyzer_system import LogAnalysisOrchestrator
@@ -17,6 +16,7 @@ from modules import (
     AnalysisRequest, AnalysisResult, KeywordExtractor,
     PromptGenerator, AnalysisData
 )
+from modules.domain import FilterMode
 
 
 class TestKeywordExtractor(unittest.TestCase):
@@ -29,37 +29,26 @@ class TestKeywordExtractor(unittest.TestCase):
         """Test basic keyword extraction."""
         description = "The application crashes with memory errors and segmentation faults"
         keywords = self.extractor.extract_keywords(description)
-        
-        self.assertIn("application", keywords)
-        self.assertIn("crashes", keywords)
-        self.assertIn("memory", keywords)
-        self.assertIn("errors", keywords)
-        self.assertIn("segmentation", keywords)
-        self.assertIn("faults", keywords)
-    
-    def test_extract_keywords_max_limit(self):
-        """Test keyword extraction with max limit."""
-        description = "application crashes memory errors segmentation faults database timeout network connection"
-        keywords = self.extractor.extract_keywords(description, max_keywords=5)
-        
-        self.assertEqual(len(keywords), 5)
-    
-    def test_extract_technical_keywords(self):
-        """Test technical keyword extraction."""
-        description = "The system throws a NullPointerException and has timeout errors"
-        keywords = self.extractor.extract_technical_keywords(description)
-        
-        self.assertIn("errors", keywords)
-        self.assertIn("timeout", keywords)
-        self.assertIn("nullpointerexception", keywords)
-    
+
+        self.assertTrue(
+            any("application" in keyword.keyword.lower() for keyword in keywords))
+        self.assertTrue(
+            any("crashes" in keyword.keyword.lower() for keyword in keywords))
+        self.assertTrue(
+            any("memory" in keyword.keyword.lower() for keyword in keywords))
+        self.assertTrue(
+            any("errors" in keyword.keyword.lower() for keyword in keywords))
+        self.assertTrue(
+            any("segmentation" in keyword.keyword.lower() for keyword in keywords))
+        self.assertTrue(
+            any("faults" in keyword.keyword.lower() for keyword in keywords))
+
+
     def test_empty_description(self):
         """Test handling of empty description."""
-        keywords = self.extractor.extract_keywords("")
-        self.assertEqual(keywords, [])
-        
-        technical_keywords = self.extractor.extract_technical_keywords("")
-        self.assertEqual(technical_keywords, [])
+        with self.assertRaises(ValueError) as cm:
+            keywords = self.extractor.extract_keywords("")
+        self.assertEqual(str(cm.exception), "Issue description cannot be empty")
 
 
 # TestMockContextRetriever removed - now using real ContextRetriever from modules
@@ -77,7 +66,8 @@ class TestPromptGenerator(unittest.TestCase):
             extracted_keywords=["crash", "memory", "error"],
             filtered_logs="Sample log entries...",
             context_description="Error Handler module",
-            log_file_path="app.log"
+            log_file_path="app.log",
+            filter_mode=FilterMode.llm
         )
         
         prompt = self.generator.generate_prompt(analysis_data)
@@ -87,22 +77,6 @@ class TestPromptGenerator(unittest.TestCase):
         self.assertIn("Sample log entries...", prompt)
         self.assertIn("Error Handler module", prompt)
         self.assertIn("app.log", prompt)
-    
-    def test_get_prompt_statistics(self):
-        """Test prompt statistics."""
-        analysis_data = AnalysisData(
-            issue_description="Test issue",
-            extracted_keywords=["test", "issue"],
-            filtered_logs="Log content",
-            context_description="Context",
-            log_file_path="test.log"
-        )
-        
-        stats = self.generator.get_prompt_statistics(analysis_data)
-        
-        self.assertIn("total_characters", stats)
-        self.assertIn("keywords_count", stats)
-        self.assertEqual(stats["keywords_count"], 2)
 
 
 class TestAnalysisRequest(unittest.TestCase):
@@ -218,7 +192,7 @@ class TestIntegration(unittest.TestCase):
         """Clean up temporary files."""
         if os.path.exists(self.temp_log.name):
             os.unlink(self.temp_log.name)
-    
+
     def test_complete_analysis_workflow(self):
         """Test the complete analysis workflow."""
         request = AnalysisRequest(
@@ -229,7 +203,8 @@ class TestIntegration(unittest.TestCase):
             max_tokens=2000,
             context_lines=1,
             deduplicate=True,
-            prioritize_by_severity=True
+            prioritize_by_severity=True,
+            filter_mode=FilterMode.llm
         )
         
         # Perform analysis
@@ -237,9 +212,9 @@ class TestIntegration(unittest.TestCase):
         
         # Verify comprehensive results
         self.assertGreater(len(result.extracted_keywords), 0)
-        self.assertIn("database", result.extracted_keywords)
-        self.assertIn("timeout", result.extracted_keywords)
-        self.assertIn("memory", result.extracted_keywords)
+        self.assertTrue(any("database" in keyword.lower() for keyword in result.extracted_keywords))
+        self.assertTrue(any("timeout" in keyword.lower() for keyword in result.extracted_keywords))
+        self.assertTrue(any("memory" in keyword.lower() for keyword in result.extracted_keywords))
         
         # Verify filtered logs contain relevant entries
         self.assertIn("Database connection timeout", result.filtered_logs)

@@ -55,38 +55,7 @@ class LocalLLMInterface(LLMInterface):
         self._test_connection()
 
     def _test_connection(self) -> bool:
-        """Test connection to local LLM and update model name if needed."""
-        try:
-            # Try OpenAI-compatible endpoint first (for LM Studio)
-            response = requests.get(f"{self.base_url}/v1/models", timeout=5)
-            if response.status_code == 200:
-                models_data = response.json()
-                if "data" in models_data and len(models_data["data"]) > 0:
-                    # Use the first available model
-                    actual_model = models_data["data"][0]["id"]
-                    if actual_model != self.model:
-                        self.logger.info(
-                            f"Detected model: {actual_model} (default was: {self.model})")
-                        self.model = actual_model
-                self.logger.info(
-                    f"Connected to local LLM (OpenAI-compatible) at {self.base_url}")
-                return True
-        except Exception as e:
-            self.logger.debug(f"OpenAI-compatible endpoint test failed: {e}")
-
-        try:
-            # Fallback to Ollama-style endpoint
-            response = requests.get(f"{self.base_url}/api/tags", timeout=5)
-            if response.status_code == 200:
-                self.logger.info(
-                    f"Connected to local LLM (Ollama-compatible) at {self.base_url}")
-                return True
-        except Exception as e:
-            self.logger.debug(f"Ollama-compatible endpoint test failed: {e}")
-
-        self.logger.warning(
-            f"Could not connect to local LLM at {self.base_url}")
-        return False
+        return self.is_available()
 
     def is_available(self) -> bool:
         """Check if LLM is available."""
@@ -102,6 +71,8 @@ class LocalLLMInterface(LLMInterface):
                         self.logger.debug(
                             f"Detected model: {actual_model}, updating from {self.model}")
                         self.model = actual_model
+                self.logger.debug(
+                    f"Connected to local LLM (OpenAI-compatible) at {self.base_url}")
                 return True
         except Exception as e:
             self.logger.debug(f"OpenAI-compatible endpoint check failed: {e}")
@@ -109,9 +80,17 @@ class LocalLLMInterface(LLMInterface):
         try:
             # Fallback to Ollama-style endpoint
             response = requests.get(f"{self.base_url}/api/tags", timeout=5)
-            return response.status_code == 200
-        except:
-            return False
+            if response.status_code == 200:
+                self.logger.debug(
+                    f"Connected to local LLM (Ollama-compatible) at {self.base_url}")
+                return True
+        except Exception as e:
+            self.logger.debug(
+                f"Ollama-compatible endpoint test failed: {e}")
+
+        self.logger.warning(
+            f"Could not connect to local LLM at {self.base_url}")
+        return False
 
     def analyze_logs(self, prompt: str) -> str:
         """Analyze logs using the provided prompt."""
