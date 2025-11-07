@@ -6,7 +6,6 @@ Handles parsing and saving analysis results.
 
 import re
 import json
-from typing import Dict
 from pathlib import Path
 
 from .domain import AnalysisResult

@@ -47,11 +47,6 @@ class ContextSource(ABC):
             List of context items
         """
         pass
-    
-    @abstractmethod
-    def get_source_name(self) -> str:
-        """Get the name of this context source."""
-        pass
 
 
 class JSONContextRetriever(ContextSource):
@@ -200,9 +195,6 @@ class JSONContextRetriever(ContextSource):
             'errors': ContextType.ERROR_PATTERNS
         }
         return mapping.get(ctx_type, ContextType.CODE)
-    
-    def get_source_name(self) -> str:
-        return "JSON Context Database"
 
 
 class ContextRetriever:
