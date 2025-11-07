@@ -15,6 +15,7 @@ from modules.utils import format_time
 class FilterMode(str, Enum):
     vector = "vector"
     llm = "llm"
+    split = "split"
 
 @dataclass
 class AnalysisRequest:
@@ -41,6 +42,7 @@ class AnalysisResult:
     generated_prompt: str
     llm_analysis: Optional[str] = None
     llm_model: Optional[str] = None
+    chunk_responses: Optional[List[str]] = None
     timestamp: datetime = field(default_factory=datetime.now)
     processing_time_ms: int = 0
 

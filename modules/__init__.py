@@ -18,12 +18,15 @@ from .prompt_generator import PromptGenerator, AnalysisData
 from .domain import AnalysisRequest, AnalysisResult
 from .result_handler import ResultHandler
 from .vector_log_filter import VectorLogFilterConfig, VectorLogFilter
+from .split_log_filter import SplitLogFilterConfig, SplitLogFilter
 
 __all__ = [
     'LLMLogFilterConfig',
     'LLMLogFilter',
     'VectorLogFilterConfig',
     'VectorLogFilter',
+    'SplitLogFilterConfig',
+    'SplitLogFilter',
     'LogTimestampParser',
     'LogDateFilter',
     'LogKeywordFilter',

@@ -154,7 +154,8 @@ class ResultHandler:
             'filtered_logs': parsed_logs,
             'context_info': result.context_info,
             'generated_prompt': result.generated_prompt,
-            'llm_analysis': result.llm_analysis
+            'llm_analysis': result.llm_analysis,
+            'chunk_responses': result.chunk_responses if result.chunk_responses else None
         }
         
         # Save to file

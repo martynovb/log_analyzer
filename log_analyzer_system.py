@@ -6,17 +6,24 @@ All business logic is in the modules directory.
 """
 
 from datetime import datetime
+from typing import Optional
 
 # Import from modules - clean, modular approach
 from modules import (
-    LLMLogFilterConfig, LLMLogFilter,
-    VectorLogFilterConfig, VectorLogFilter,
+    LLMLogFilterConfig,
+    LLMLogFilter,
+    VectorLogFilterConfig,
+    VectorLogFilter,
+    SplitLogFilterConfig,
+    SplitLogFilter,
     KeywordExtractor,
     ContextRetriever,
-    PromptGenerator, AnalysisData,
-    AnalysisRequest, AnalysisResult,
+    PromptGenerator,
+    AnalysisData,
+    AnalysisRequest,
+    AnalysisResult,
     ResultHandler,
-    LocalLLMInterface
+    LocalLLMInterface,
 )
 from modules.domain import FilterMode
 from modules.utils import format_time
@@ -28,8 +35,7 @@ class LogAnalysisOrchestrator:
     def __init__(self):
         """Initialize the orchestrator."""
         self.llm_interface = LocalLLMInterface()
-        self.keyword_extractor = KeywordExtractor(
-            llm_interface=self.llm_interface)
+        self.keyword_extractor = KeywordExtractor(llm_interface=self.llm_interface)
         self.context_retriever = ContextRetriever()
         self.prompt_generator = PromptGenerator()
         self.result_handler = ResultHandler()
@@ -37,10 +43,10 @@ class LogAnalysisOrchestrator:
     def analyze_issue(self, request: AnalysisRequest) -> AnalysisResult:
         """
         Perform complete issue analysis by orchestrating all modules.
-        
+
         Args:
             request: Analysis request parameters
-            
+
         Returns:
             Complete analysis result
         """
@@ -48,77 +54,55 @@ class LogAnalysisOrchestrator:
 
         # Step 1: Extract keywords from issue description
         step1_start = datetime.now()
+
         all_keywords = self.extract_keywords(request)
         step1_end = datetime.now()
-        self.print_step_time("Step 1: Keyword extraction", step1_start,
-                             step1_end)
+        self.print_step_time("Step 1: Keyword extraction", step1_start, step1_end)
+
 
         # Step 2: Filter logs (branch by filter mode)
+        print(f"Step 2: Analyzing logs using {request.filter_mode.value} approach...")
         step2_start = datetime.now()
-        print(
-            f"Step 2: Analyzing logs using {'Vector DB' if request.filter_mode.value == 'vector' else 'keyword-based'} approach...")
-        filtered_logs = self.filter_logs(request, keywords=all_keywords)
+
+        filtered_logs, chunk_responses = self.filter_logs(
+            request, keywords=all_keywords
+        )
         step2_end = datetime.now()
         self.print_step_time("Step 2: Log filtering", step2_start, step2_end)
 
         # Step 3: Retrieve context
+        print("Step 3: Retrieving codebase, documentation and error contexts...")
         step3_start = datetime.now()
-        print(
-            "Step 3: Retrieving codebase, documentation and error contexts...")
         codebase_context = self.context_retriever.retrieve_codebase_context(
-            all_keywords)
+            all_keywords
+        )
         documentation_context = self.context_retriever.retrieve_documentation_context(
-            all_keywords)
-        error_context = self.context_retriever.retrieve_error_context(
-            all_keywords)
+            all_keywords
+        )
+        error_context = self.context_retriever.retrieve_error_context(all_keywords)
         step3_end = datetime.now()
-        self.print_step_time("Step 3: Context retrieval", step3_start,
-                             step3_end)
-
-        # Step 4: Format context and create comprehensive prompt
-        step4_start = datetime.now()
-        print("Step 4: Creating analysis prompt...")
+        self.print_step_time("Step 3: Context retrieval", step3_start, step3_end)
 
         # Format context using PromptGenerator
-        codebase_text = self.prompt_generator.format_context(codebase_context,
-                                                             "Codebase")
-        docs_text = self.prompt_generator.format_context(documentation_context,
-                                                         "Documentation")
-        errors_text = self.prompt_generator.format_context(error_context,
-                                                           "Errors")
+        codebase_text = self.prompt_generator.format_context(
+            codebase_context, "Codebase"
+        )
+        docs_text = self.prompt_generator.format_context(
+            documentation_context, "Documentation"
+        )
+        errors_text = self.prompt_generator.format_context(error_context, "Errors")
         parts = [p for p in [codebase_text, docs_text, errors_text] if p]
         combined_context = "\n\n".join(parts)
 
-        # Create AnalysisData for prompt generation
-        analysis_data = AnalysisData(
-            issue_description=request.issue_description,
-            extracted_keywords=all_keywords,
-            filter_mode=request.filter_mode,
-            filtered_logs=filtered_logs,
-            context_description=combined_context,
-            log_file_path=request.log_file_path,
-            analysis_date_range=f"{request.start_date} to {request.end_date}" if request.start_date and request.end_date else request.start_date or request.end_date
-        )
-
-        # Generate prompt using PromptGenerator
-        generated_prompt = self.prompt_generator.generate_prompt(analysis_data)
-        step4_end = datetime.now()
-        self.print_step_time("Step 4: Prompt generation", step4_start,
-                             step4_end)
-
-        # Step 5: Get LLM analysis
-        step5_start = datetime.now()
-        print("Step 5: Getting LLM analysis...")
-        try:
-            llm_analysis = self.llm_interface.analyze_logs(generated_prompt)
-            step5_end = datetime.now()
-            self.print_step_time("Step 5: LLM analysis", step5_start, step5_end)
-        except Exception as e:
-            step5_end = datetime.now()
-            print(f"  ✗ LLM analysis failed: {e}")
-            self.print_step_time("Step 5: LLM analysis (failed)", step5_start,
-                                 step5_end)
-            llm_analysis = f"LLM analysis failed: {str(e)}"
+        # Step 4 & 5: Handle differently for split mode vs other modes
+        if request.filter_mode == FilterMode.split and chunk_responses:
+            generated_prompt, llm_analysis = self._handle_split_mode_analysis(
+                request, combined_context, chunk_responses
+            )
+        else:
+            generated_prompt, llm_analysis = self._handle_normal_mode_analysis(
+                request, all_keywords, filtered_logs, combined_context
+            )
 
         # Calculate total processing time
         end_time = datetime.now()
@@ -135,94 +119,221 @@ class LogAnalysisOrchestrator:
             extracted_keywords=all_keywords,
             filtered_logs=filtered_logs,
             context_info={
-                'codebase': codebase_context,
-                'documentation': documentation_context,
-                'errors': error_context
+                "codebase": codebase_context,
+                "documentation": documentation_context,
+                "errors": error_context,
             },
             generated_prompt=generated_prompt,
             llm_analysis=llm_analysis,
-            llm_model=getattr(self.llm_interface, 'model', None),
+            llm_model=getattr(self.llm_interface, "model", None),
+            chunk_responses=chunk_responses,
             timestamp=end_time,
-            processing_time_ms=processing_time_ms
+            processing_time_ms=processing_time_ms,
         )
 
         print(f"Analysis completed in {processing_time_ms}ms")
         return result
 
-    def save_result(self, result: AnalysisResult,
-                    output_dir: str = "analysis_results",
-                    custom_timestamp: str = None) -> str:
+    def _handle_split_mode_analysis(
+        self,
+        request: AnalysisRequest,
+        combined_context: str,
+        chunk_responses: list[str],
+    ) -> tuple[str, str]:
+        """
+        Handle analysis for split mode: chunks already analyzed, now synthesize.
+
+        Args:
+            request: Analysis request parameters
+            combined_context: Combined context from codebase, docs, and errors
+            chunk_responses: List of chunk analysis responses
+
+        Returns:
+            Tuple of (generated_prompt, llm_analysis)
+        """
+        # Split mode: chunks already analyzed, now synthesize
+        step4_start = datetime.now()
+        print("Step 4: Creating synthesis prompt...")
+
+        # Generate synthesis prompt
+        synthesis_prompt = self.prompt_generator.generate_synthesis_prompt(
+            issue_description=request.issue_description,
+            context_description=combined_context,
+            chunk_responses=chunk_responses,
+        )
+        step4_end = datetime.now()
+        self.print_step_time(
+            "Step 4: Synthesis prompt generation", step4_start, step4_end
+        )
+
+        # Step 5: Get synthesis analysis
+        step5_start = datetime.now()
+        print("Step 5: Getting synthesis analysis...")
+        try:
+            llm_analysis = self.llm_interface.analyze_logs(synthesis_prompt)
+            step5_end = datetime.now()
+            self.print_step_time(
+                "Step 5: Synthesis analysis", step5_start, step5_end
+            )
+        except Exception as e:
+            step5_end = datetime.now()
+            print(f"  ✗ Synthesis analysis failed: {e}")
+            self.print_step_time(
+                "Step 5: Synthesis analysis (failed)", step5_start, step5_end
+            )
+            llm_analysis = f"Synthesis analysis failed: {str(e)}"
+
+        return synthesis_prompt, llm_analysis
+
+    def _handle_normal_mode_analysis(
+        self,
+        request: AnalysisRequest,
+        all_keywords: list[str],
+        filtered_logs: str,
+        combined_context: str,
+    ) -> tuple[str, str]:
+        """
+        Handle analysis for normal mode: generate prompt and analyze.
+
+        Args:
+            request: Analysis request parameters
+            all_keywords: Extracted keywords
+            filtered_logs: Filtered log content
+            combined_context: Combined context from codebase, docs, and errors
+
+        Returns:
+            Tuple of (generated_prompt, llm_analysis)
+        """
+        # Normal mode: generate prompt and analyze
+        step4_start = datetime.now()
+        print("Step 4: Creating analysis prompt...")
+
+        # Create AnalysisData for prompt generation
+        analysis_data = AnalysisData(
+            issue_description=request.issue_description,
+            extracted_keywords=all_keywords,
+            filter_mode=request.filter_mode,
+            filtered_logs=filtered_logs,
+            context_description=combined_context,
+            log_file_path=request.log_file_path,
+            analysis_date_range=(
+                f"{request.start_date} to {request.end_date}"
+                if request.start_date and request.end_date
+                else request.start_date or request.end_date
+            ),
+        )
+
+        # Generate prompt using PromptGenerator
+        generated_prompt = self.prompt_generator.generate_prompt(analysis_data)
+        step4_end = datetime.now()
+        self.print_step_time("Step 4: Prompt generation", step4_start, step4_end)
+
+        # Step 5: Get LLM analysis
+        step5_start = datetime.now()
+        print("Step 5: Getting LLM analysis...")
+        try:
+            llm_analysis = self.llm_interface.analyze_logs(generated_prompt)
+            step5_end = datetime.now()
+            self.print_step_time("Step 5: LLM analysis", step5_start, step5_end)
+        except Exception as e:
+            step5_end = datetime.now()
+            print(f"  ✗ LLM analysis failed: {e}")
+            self.print_step_time(
+                "Step 5: LLM analysis (failed)", step5_start, step5_end
+            )
+            llm_analysis = f"LLM analysis failed: {str(e)}"
+
+        return generated_prompt, llm_analysis
+
+    def save_result(
+        self,
+        result: AnalysisResult,
+        output_dir: str = "analysis_results",
+        custom_timestamp: str = None,
+    ) -> str:
         """
         Save analysis result to file.
-        
+
         Args:
             result: Analysis result to save
             output_dir: Directory to save results
             custom_timestamp: Optional custom timestamp string to use for filename
-            
+
         Returns:
             Path to saved file
         """
-        return self.result_handler.save_result(result, output_dir,
-                                               custom_timestamp)
+        return self.result_handler.save_result(result, output_dir, custom_timestamp)
 
-    def filter_logs(self, request: AnalysisRequest, keywords: list[str]) -> str:
-        match request.filter_mode:
-            case FilterMode.vector:
-                print("Using vector DB approach to filter logs")
-                config = VectorLogFilterConfig(
-                    issue_description=request.issue_description,
-                    log_file_path=request.log_file_path,
-                    start_date=request.start_date,
-                    end_date=request.end_date,
-                    max_tokens=request.max_tokens,
-                )
-                log_filter = VectorLogFilter(config=config)
-            case FilterMode.llm:
-                print("Using LLM approach to filter logs")
-                config = LLMLogFilterConfig(
-                    keywords=keywords,
-                    log_file_path=request.log_file_path,
-                    max_tokens=request.max_tokens,
-                    context_lines=request.context_lines,
-                    deduplicate=request.deduplicate,
-                    prioritize_by_severity=request.prioritize_by_severity,
-                    prioritize_matches=True,
-                    max_results=None,
-                    start_date=request.start_date,
-                    end_date=request.end_date
-                )
-                log_filter = LLMLogFilter(config=config)
-        filtered_logs = log_filter.filter()
-        return filtered_logs
+    def filter_logs(self, request: AnalysisRequest, keywords: list[str]) -> tuple[str, Optional[list[str]]]:
+        if request.filter_mode == FilterMode.vector:
+            print("Using vector DB approach to filter logs")
+            config = VectorLogFilterConfig(
+                issue_description=request.issue_description,
+                log_file_path=request.log_file_path,
+                start_date=request.start_date,
+                end_date=request.end_date
+            )
+            log_filter = VectorLogFilter(config=config)
+            filtered_logs = log_filter.filter()
+            return filtered_logs, None
+        elif request.filter_mode == FilterMode.split:
+            print("Using split mode to filter logs")
+            config = SplitLogFilterConfig(
+                llm_interface=self.llm_interface,
+                issue_description=request.issue_description,
+                log_file_path=request.log_file_path,
+                max_tokens=request.max_tokens,
+                keywords=keywords,
+                start_date=request.start_date,
+                end_date=request.end_date
+            )
+            log_filter = SplitLogFilter(config=config)
+            filtered_logs = log_filter.filter()
+            chunk_responses = log_filter.get_chunk_responses()
+            return filtered_logs, chunk_responses
+        else:
+            print("Using LLM approach to filter logs")
+            config = LLMLogFilterConfig(
+                keywords=keywords,
+                log_file_path=request.log_file_path,
+                max_tokens=request.max_tokens,
+                context_lines=request.context_lines,
+                deduplicate=request.deduplicate,
+                prioritize_by_severity=request.prioritize_by_severity,
+                prioritize_matches=True,
+                max_results=None,
+                start_date=request.start_date,
+                end_date=request.end_date
+            )
+            log_filter = LLMLogFilter(config=config)
+            filtered_logs = log_filter.filter()
+            return filtered_logs, None
 
     def extract_keywords(self, request: AnalysisRequest) -> list[str]:
-        match request.filter_mode:
-            case FilterMode.vector:
-                # For vector DB mode, skip LLM keyword extraction
-                print(
-                    "Step 1: Skipping keyword extraction (vector DB mode - keywords not needed for filtering)...")
-                return []
-            case FilterMode.llm:
-                # For LLM/keyword mode, use LLM-based keyword extraction
-                print(
-                    "Step 1: Extracting keywords from issue description using LLM...")
-                extracted_keywords_objects = self.keyword_extractor.extract_keywords(
-                    request.issue_description)
-                extracted_keywords = [kw.keyword for kw in
-                                      extracted_keywords_objects]
+        if request.filter_mode == FilterMode.vector:
+            # For vector DB mode, skip LLM keyword extraction
+            print(
+                "Step 1: Skipping keyword extraction (vector DB mode - keywords not needed for filtering)...")
+            return []
+        else:
+            # For LLM/keyword mode, use LLM-based keyword extraction
+            print(
+                "Step 1: Extracting keywords from issue description using LLM...")
+            extracted_keywords_objects = self.keyword_extractor.extract_keywords(
+                request.issue_description)
+            extracted_keywords = [kw.keyword for kw in
+                                  extracted_keywords_objects]
 
-                # Add any manually provided keywords
-                if request.keywords:
-                    extracted_keywords.extend(request.keywords)
+            # Add any manually provided keywords
+            if request.keywords:
+                extracted_keywords.extend(request.keywords)
 
-                # Remove duplicates
-                all_keywords = list(set(extracted_keywords))
-                print(f"  Extracted keywords: {all_keywords}")
-                return all_keywords
+            # Remove duplicates
+            all_keywords = list(set(extracted_keywords))
+            print(f"  Extracted keywords: {all_keywords}")
+            return all_keywords
 
-    def print_step_time(self, step_name: str, step_start: datetime,
-                        step_end: datetime):
+    def print_step_time(self, step_name: str, step_start: datetime, step_end: datetime):
         """Print time taken for a step."""
         elapsed = (step_end - step_start).total_seconds()
         print(f"  ✓ {step_name} completed in {format_time(elapsed)}")

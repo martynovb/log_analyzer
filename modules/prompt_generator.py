@@ -120,3 +120,128 @@ where score represents how much the logs are similar to the requested string.
 Lower score represents more similarity.
 The logs in a json are sorted by score. Pay attention to the score and consider it in your answer."""
                 return f"{vector_specific_part}\n{common_part}"
+
+    def get_logs_prompt(self, analysis_data: AnalysisData) -> str:
+        common_part = f"""## Log File
+- Path: {analysis_data.log_file_path}
+- Date Range: {analysis_data.analysis_date_range or 'Not specified'}
+
+## Filtered Log Entries
+{analysis_data.filtered_logs}"""
+
+        match analysis_data.filter_mode:
+            case FilterMode.llm:
+                return common_part
+            case FilterMode.vector:
+                vector_specific_part = """Logs are presented in a json format as a list of dictionaries:
+"[{\"score\":0.3708814,\"logs\":\"timestamp1 <log_level1> log_tag1: message1\ntimestamp2 <log_level2> log_tag2: message2\"},
+{\"score\":0.786563,\"logs\":\"timestamp3 <log_level3> log_tag3: message3\ntimestamp4 <log_level4> log_tag4: message4\"}]"
+where score represents how much the logs are similar to the requested string.
+Lower score represents more similarity.
+The logs in a json are sorted by score. Pay attention to the score and consider it in your answer."""
+                return f"{vector_specific_part}\n{common_part}"
+
+    def generate_synthesis_prompt(
+        self,
+        issue_description: str,
+        context_description: str,
+        chunk_responses: List[str],
+    ) -> str:
+        """
+        Generate a synthesis prompt that combines analysis from multiple chunks.
+
+        Args:
+            issue_description: The issue description
+            extracted_keywords: List of extracted keywords (empty for split mode)
+            context_description: Formatted context information (empty for split mode)
+            chunk_responses: List of LLM responses from each chunk
+            log_file_path: Path to the log file
+            analysis_date_range: Optional date range string
+
+        Returns:
+            Formatted synthesis prompt string
+        """
+        # Format chunk responses
+        chunk_analyses = "\n\n".join(
+            [
+                f"### Chunk {i+1} Analysis\n{response}"
+                for i, response in enumerate(chunk_responses)
+            ]
+        )
+
+        context_section = ""
+        if context_description:
+            context_section = f"\n## Context Information\n{context_description}\n"
+
+        prompt = f"""# Log Analysis Synthesis Request
+
+## Issue Description
+{issue_description}
+{context_section}
+## Log File
+
+## Chunk Analyses
+The logs were split into {len(chunk_responses)} chunks and each chunk was analyzed separately. Below are the analyses from each chunk:
+
+{chunk_analyses}
+
+## Synthesis Task
+
+Synthesize the analyses from all chunks above and provide a comprehensive final analysis:
+
+**Root Cause**: What is causing the issue? Be specific and reference findings from the chunk analyses.
+
+**Pattern Identification**: Are there any patterns or trends across the chunks?
+
+**Timeline**: If time-based patterns are evident, describe the timeline of events.
+
+**Impact Assessment**: What is the overall impact of the issue?
+
+**Recommended Actions**: What actions should be taken based on the complete analysis?
+
+Provide a clear, structured analysis that synthesizes insights from all chunks into a cohesive understanding of the issue."""
+
+        return prompt
+
+    def generate_chunk_prompt(
+        self,
+        issue_description: str,
+        chunk_logs: str,
+        context_description: str = "",
+    ) -> str:
+        """
+        Create a prompt for analyzing a single chunk of logs.
+
+        Args:
+            issue_description: The issue description
+            chunk_logs: The log content for this chunk
+            context_description: Optional context information
+
+        Returns:
+            Formatted prompt string for LLM analysis
+        """
+        context_section = ""
+        if context_description:
+            context_section = f"\n## Context Information\n{context_description}\n"
+
+        prompt = f"""# Log Analysis Request
+
+## Issue Description
+{issue_description}
+{context_section}## Log Entries (Chunk)
+
+This is one chunk of the log file. Analyze these log entries:
+
+{chunk_logs}
+
+## Analysis Task
+
+Provide a brief analysis:
+
+1. **Does the issue exist in these logs?** (Yes/No with brief explanation)
+
+2. **If yes, what is the root cause?** (Be specific and reference log entries)
+
+Keep your response concise and focused."""
+
+        return prompt

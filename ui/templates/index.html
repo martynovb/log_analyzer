@@ -279,6 +279,7 @@
                         <select id="filter_mode" name="filter_mode">
                             <option value="llm" selected>LLM keywords</option>
                             <option value="vector">Vector DB</option>
+                            <option value="split">Split by max tokens</option>
                         </select>
                     </div>
                     <div class="grid">
@@ -290,6 +291,11 @@
                             <label for="end_date">End Date (optional):</label>
                             <input type="date" id="end_date" name="end_date">
                         </div>
+                    </div>
+                    
+                    <div class="form-group" id="max_tokens_section">
+                        <label for="max_tokens">Max Tokens:</label>
+                        <input type="number" id="max_tokens" name="max_tokens" value="3500" min="1000">
                     </div>
                     
                     <div class="grid" id="llm_config_section">
@@ -454,21 +460,26 @@
         
         // Toggle LLM sections and options based on filter mode
         document.getElementById('filter_mode').addEventListener('change', function() {
-            const isVector = this.value === 'vector';
+            const filterMode = this.value;
+            const isVector = filterMode === 'vector';
+            const isSplit = filterMode === 'split';
+            const isLLM = filterMode === 'llm';
+            
             const contextLinesSection = document.getElementById('context_lines_section');
             const checkboxSection = document.getElementById('checkbox_options_section');
             
-            // Hide/show LLM config section (Max Logs Tokens, Context Lines) - only for keyword extraction
+            
+            // Context Lines: Show only for LLM mode
             if (contextLinesSection) {
-                contextLinesSection.style.display = isVector ? 'none' : 'grid';
+                contextLinesSection.style.display = isLLM ? 'grid' : 'none';
             }
             
-            // Hide/show checkbox options (Remove Duplicates, Prioritize by Severity) - only for keyword extraction
+            // Checkbox options: Show only for LLM mode
             if (checkboxSection) {
-                checkboxSection.style.display = isVector ? 'none' : 'block';
+                checkboxSection.style.display = isLLM ? 'block' : 'none';
             }
             
-            // LLM Configuration section (llm_details_section) is visible for both modes
+            // LLM Configuration section (llm_details_section) is visible for all modes
             // No need to hide/show it
         });
         
